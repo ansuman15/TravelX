@@ -20,6 +20,7 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 
 export async function createBooking(formData: {
     customer_id: string;
+    package_id?: string;
     enquiry_id?: string;
     itinerary_id?: string;
     travel_start: string;
@@ -137,6 +138,8 @@ export async function updateBookingStatus(
 export async function updateBooking(
     bookingId: string,
     formData: {
+        package_id?: string;
+        itinerary_id?: string;
         travel_start?: string;
         travel_end?: string;
         destination?: string;

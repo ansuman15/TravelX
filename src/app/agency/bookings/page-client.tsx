@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
     Plus,
     Search,
@@ -18,10 +19,30 @@ import {
     Clock,
     XCircle,
     Plane,
+    Package,
 } from 'lucide-react';
 import { Badge, Button, Input, Select } from '@/components/ui';
 import { Modal } from '@/components/ui/Modal';
-import { createBooking, updateBookingStatus, recordPayment } from '@/lib/actions/bookings';
+import { createBooking, updateBookingStatus, recordPayment, updateBooking } from '@/lib/actions/bookings';
+
+interface PackageItinerary {
+    id: string;
+    name: string;
+    destination: string;
+    duration_days: number;
+    duration_nights: number;
+}
+
+interface PackageType {
+    id: string;
+    name: string;
+    destination: string;
+    duration_days: number;
+    duration_nights: number;
+    base_price: number | null;
+    category: string | null;
+    itineraries: PackageItinerary[];
+}
 
 interface Booking {
     id: string;
@@ -36,6 +57,8 @@ interface Booking {
     total_amount: number;
     amount_paid: number;
     assigned_to: string | null;
+    package_id: string | null;
+    itinerary_id: string | null;
     notes: string | null;
     created_at: string;
     customer?: {
@@ -47,6 +70,21 @@ interface Booking {
     assigned_user?: {
         id: string;
         full_name: string;
+    } | null;
+    package?: {
+        id: string;
+        name: string;
+        destination: string;
+        duration_days: number;
+        duration_nights: number;
+        category: string | null;
+    } | null;
+    itinerary?: {
+        id: string;
+        name: string;
+        destination: string;
+        duration_days: number;
+        duration_nights: number;
     } | null;
 }
 
@@ -67,6 +105,7 @@ interface BookingsPageClientProps {
     initialBookings: Booking[];
     customers: Customer[];
     staff: Staff[];
+    packages: PackageType[];
     currentUserId: string;
 }
 
@@ -92,6 +131,7 @@ export function BookingsPageClient({
     initialBookings,
     customers,
     staff,
+    packages,
     currentUserId
 }: BookingsPageClientProps) {
     const router = useRouter();
@@ -107,6 +147,8 @@ export function BookingsPageClient({
     // Form state
     const [formData, setFormData] = useState({
         customer_id: '',
+        package_id: '',
+        itinerary_id: '',
         destination: '',
         travel_start: '',
         travel_end: '',
@@ -126,17 +168,61 @@ export function BookingsPageClient({
         notes: '',
     });
 
+    // Get itineraries for selected package
+    const selectedPackage = packages.find(p => p.id === formData.package_id);
+    const availableItineraries = selectedPackage?.itineraries || [];
+
     const filteredBookings = bookings.filter(booking => {
         const query = searchQuery.toLowerCase();
         const matchesSearch =
             booking.booking_number.toLowerCase().includes(query) ||
             booking.customer?.full_name.toLowerCase().includes(query) ||
-            booking.destination?.toLowerCase().includes(query);
+            booking.destination?.toLowerCase().includes(query) ||
+            booking.package?.name?.toLowerCase().includes(query);
 
         const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
 
         return matchesSearch && matchesStatus;
     });
+
+    // Handle package selection - auto-fill details from package
+    const handlePackageChange = (packageId: string) => {
+        const pkg = packages.find(p => p.id === packageId);
+        if (pkg) {
+            const travelStart = formData.travel_start || new Date().toISOString().split('T')[0];
+            const startDate = new Date(travelStart);
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + pkg.duration_days - 1);
+
+            setFormData({
+                ...formData,
+                package_id: packageId,
+                itinerary_id: '',
+                destination: pkg.destination,
+                travel_end: endDate.toISOString().split('T')[0],
+                total_amount: pkg.base_price || formData.total_amount,
+            });
+        } else {
+            setFormData({ ...formData, package_id: '', itinerary_id: '' });
+        }
+    };
+
+    const resetForm = () => {
+        setFormData({
+            customer_id: '',
+            package_id: '',
+            itinerary_id: '',
+            destination: '',
+            travel_start: '',
+            travel_end: '',
+            adults: 1,
+            children: 0,
+            total_cost: 0,
+            total_amount: 0,
+            assigned_to: '',
+            notes: '',
+        });
+    };
 
     const handleCreateBooking = async () => {
         if (!formData.customer_id || !formData.travel_start || !formData.travel_end) {
@@ -146,23 +232,14 @@ export function BookingsPageClient({
         setLoading(true);
         const result = await createBooking({
             ...formData,
+            package_id: formData.package_id || undefined,
+            itinerary_id: formData.itinerary_id || undefined,
             assigned_to: formData.assigned_to || undefined,
         });
 
         if (result.data) {
             setShowCreateModal(false);
-            setFormData({
-                customer_id: '',
-                destination: '',
-                travel_start: '',
-                travel_end: '',
-                adults: 1,
-                children: 0,
-                total_cost: 0,
-                total_amount: 0,
-                assigned_to: '',
-                notes: '',
-            });
+            resetForm();
             router.refresh();
         }
         setLoading(false);
@@ -197,6 +274,18 @@ export function BookingsPageClient({
                 reference_number: '',
                 notes: '',
             });
+            router.refresh();
+        }
+        setLoading(false);
+    };
+
+    const handleLinkPackage = async (bookingId: string, packageId: string, itineraryId?: string) => {
+        setLoading(true);
+        const result = await updateBooking(bookingId, {
+            package_id: packageId || undefined,
+            itinerary_id: itineraryId || undefined,
+        });
+        if (result.data) {
             router.refresh();
         }
         setLoading(false);
@@ -254,7 +343,7 @@ export function BookingsPageClient({
         setShowPaymentModal(true);
     };
 
-    // Group bookings by status for Kanban view (optional)
+    // Group bookings by status for stats
     const bookingsByStatus = STATUS_OPTIONS.reduce((acc, status) => {
         acc[status.value] = bookings.filter(b => b.status === status.value);
         return acc;
@@ -268,7 +357,7 @@ export function BookingsPageClient({
                     <h1 className="text-2xl font-bold">Bookings</h1>
                     <p className="text-secondary text-sm">Manage trip bookings and payments</p>
                 </div>
-                <Button onClick={() => setShowCreateModal(true)}>
+                <Button onClick={() => { resetForm(); setShowCreateModal(true); }}>
                     <Plus size={18} />
                     New Booking
                 </Button>
@@ -309,7 +398,7 @@ export function BookingsPageClient({
                                 <input
                                     type="text"
                                     className="form-input"
-                                    placeholder="Search by booking number, customer, destination..."
+                                    placeholder="Search by booking number, customer, destination, package..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     style={{ paddingLeft: '40px' }}
@@ -338,9 +427,9 @@ export function BookingsPageClient({
                             <tr>
                                 <th>Booking #</th>
                                 <th>Customer</th>
+                                <th>Package</th>
                                 <th>Destination</th>
                                 <th>Travel Dates</th>
-                                <th>Travelers</th>
                                 <th>Amount</th>
                                 <th>Payment</th>
                                 <th>Status</th>
@@ -379,6 +468,23 @@ export function BookingsPageClient({
                                                 ) : '-'}
                                             </td>
                                             <td>
+                                                {booking.package ? (
+                                                    <div>
+                                                        <div className="font-medium flex items-center gap-1">
+                                                            <Package size={12} className="text-primary-500" />
+                                                            {booking.package.name}
+                                                        </div>
+                                                        {booking.itinerary && (
+                                                            <div className="text-xs text-secondary">
+                                                                {booking.itinerary.name}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-secondary text-sm">No package</span>
+                                                )}
+                                            </td>
+                                            <td>
                                                 <div className="flex items-center gap-1">
                                                     <MapPin size={14} className="text-secondary" />
                                                     {booking.destination || '-'}
@@ -388,12 +494,6 @@ export function BookingsPageClient({
                                                 <div className="text-sm">
                                                     <div>{formatDate(booking.travel_start)}</div>
                                                     <div className="text-secondary">to {formatDate(booking.travel_end)}</div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="flex items-center gap-1">
-                                                    <Users size={14} className="text-secondary" />
-                                                    {booking.adults}A {booking.children > 0 && `+ ${booking.children}C`}
                                                 </div>
                                             </td>
                                             <td>
@@ -487,6 +587,40 @@ export function BookingsPageClient({
                             ))}
                         </Select>
                     </div>
+
+                    {/* Package Selection */}
+                    <div className="form-group">
+                        <label className="form-label">Package (Optional)</label>
+                        <Select
+                            value={formData.package_id}
+                            onChange={(e) => handlePackageChange(e.target.value)}
+                        >
+                            <option value="">No package</option>
+                            {packages.map(p => (
+                                <option key={p.id} value={p.id}>
+                                    {p.name} ({p.duration_days}D/{p.duration_nights}N)
+                                </option>
+                            ))}
+                        </Select>
+                    </div>
+
+                    {/* Itinerary Selection (appears when package selected) */}
+                    <div className="form-group">
+                        <label className="form-label">Itinerary (Optional)</label>
+                        <Select
+                            value={formData.itinerary_id}
+                            onChange={(e) => setFormData({ ...formData, itinerary_id: e.target.value })}
+                            disabled={!formData.package_id}
+                        >
+                            <option value="">No itinerary</option>
+                            {availableItineraries.map(it => (
+                                <option key={it.id} value={it.id}>
+                                    {it.name}
+                                </option>
+                            ))}
+                        </Select>
+                    </div>
+
                     <div className="form-group" style={{ gridColumn: 'span 2' }}>
                         <label className="form-label">Destination</label>
                         <Input
@@ -596,6 +730,26 @@ export function BookingsPageClient({
                             {getStatusBadge(selectedBooking.status)}
                         </div>
 
+                        {/* Package Info */}
+                        {selectedBooking.package && (
+                            <div className="card mb-4" style={{ background: 'var(--primary-50)' }}>
+                                <div className="card-body" style={{ padding: 'var(--spacing-4)' }}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Package size={16} className="text-primary-600" />
+                                        <span className="font-medium text-primary-700">Package: {selectedBooking.package.name}</span>
+                                    </div>
+                                    <div className="text-sm text-primary-600">
+                                        {selectedBooking.package.destination} • {selectedBooking.package.duration_days}D/{selectedBooking.package.duration_nights}N
+                                    </div>
+                                    {selectedBooking.itinerary && (
+                                        <div className="text-sm text-primary-600 mt-1">
+                                            Itinerary: {selectedBooking.itinerary.name}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <div className="text-sm text-secondary">Customer</div>
@@ -657,6 +811,14 @@ export function BookingsPageClient({
                             <Button variant="ghost" onClick={() => setShowDetailModal(false)}>
                                 Close
                             </Button>
+                            {selectedBooking.package && selectedBooking.itinerary && (
+                                <Link href={`/agency/packages/${selectedBooking.package.id}`}>
+                                    <Button variant="outline">
+                                        <FileText size={16} />
+                                        View Itinerary
+                                    </Button>
+                                </Link>
+                            )}
                             <Button variant="outline" onClick={() => { setShowDetailModal(false); openPaymentModal(selectedBooking); }}>
                                 <CreditCard size={16} />
                                 Record Payment
