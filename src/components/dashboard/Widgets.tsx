@@ -14,7 +14,7 @@ interface TripCardProps {
     startDate: string;
     endDate: string;
     travelers: number;
-    status: 'upcoming' | 'ongoing' | 'completed';
+    status: 'upcoming' | 'ongoing' | 'completed' | 'pending';
     onClick?: () => void;
 }
 
@@ -32,12 +32,14 @@ export function TripCard({
         upcoming: 'primary',
         ongoing: 'success',
         completed: 'gray',
+        pending: 'warning',
     } as const;
 
     const statusLabels = {
         upcoming: 'Upcoming',
         ongoing: 'Ongoing',
         completed: 'Completed',
+        pending: 'Pending',
     };
 
     return (

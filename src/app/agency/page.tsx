@@ -1,220 +1,146 @@
-'use client';
+import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth';
+import { AgencyDashboardClient } from './dashboard-client';
 
-import { StatCard } from '@/components/ui';
-import {
-    CalendarWidget,
-    RevenueChart,
-    DestinationsChart,
-    TripsProgress,
-    TripCard,
-    MessageItem,
-    RecentBookings,
-} from '@/components/dashboard';
-import {
-    Briefcase,
-    Users,
-    DollarSign,
-    TrendingUp,
-    Plus,
-} from 'lucide-react';
+export const dynamic = 'force-dynamic';
 
-// Demo data for the dashboard
-const revenueData = [
-    { name: 'Sun', value: 320 },
-    { name: 'Mon', value: 450 },
-    { name: 'Tue', value: 635 },
-    { name: 'Wed', value: 480 },
-    { name: 'Thu', value: 520 },
-    { name: 'Fri', value: 590 },
-    { name: 'Sat', value: 410 },
-];
+export default async function AgencyDashboardPage() {
+    const user = await requireAuth();
+    const supabase = await createClient();
 
-const destinationsData = [
-    { name: 'Tokyo, Japan', value: 35, color: '#3F83F8', participants: 2458 },
-    { name: 'Sydney, Australia', value: 28, color: '#0E9F6E', participants: 2458 },
-    { name: 'Paris, France', value: 22, color: '#F59E0B', participants: 2458 },
-    { name: 'Venice, Italy', value: 15, color: '#EF4444', participants: 2458 },
-];
+    // Fetch leads stats
+    const { data: leads } = await supabase
+        .from('leads')
+        .select('id, status, created_at');
 
-const tripStats = {
-    total: 1200,
-    done: 620,
-    booked: 465,
-    cancelled: 115,
-};
+    // Fetch customers count
+    const { count: customersCount } = await supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true });
 
-const upcomingTrips = [
-    {
-        id: '1',
-        destination: 'Paris, France',
-        country: 'France',
-        startDate: '5 Jul',
-        endDate: '10 July',
-        travelers: 4,
-        status: 'upcoming' as const,
-    },
-    {
-        id: '2',
-        destination: 'Tokyo, Japan',
-        country: 'Japan',
-        startDate: '15 Jul',
-        endDate: '22 July',
-        travelers: 2,
-        status: 'upcoming' as const,
-    },
-];
+    // Fetch bookings with payments
+    const { data: bookings } = await supabase
+        .from('bookings')
+        .select('id, status, total_amount, amount_paid, travel_start, travel_end, destination, created_at, customer:customers(full_name)')
+        .order('created_at', { ascending: false });
 
-const messages = [
-    {
-        id: '1',
-        sender: 'Europa Hotel',
-        message: 'We are pleased to announce...',
-        time: '8:00 AM',
-        unread: true,
-    },
-    {
-        id: '2',
-        sender: 'Global Travel Co',
-        message: 'We have updated our com...',
-        time: '2:30 PM',
-        unread: false,
-    },
-];
+    // Fetch payments for revenue calculation
+    const { data: payments } = await supabase
+        .from('payments')
+        .select('amount, payment_date, created_at')
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
-const recentBookings = [
-    {
-        id: '1',
-        customer: 'John Doe',
-        destination: 'Bali, Indonesia',
-        amount: 125000,
-        status: 'confirmed' as const,
-        date: 'Jan 5, 2026',
-    },
-    {
-        id: '2',
-        customer: 'Sarah Smith',
-        destination: 'Dubai, UAE',
-        amount: 85000,
-        status: 'pending' as const,
-        date: 'Jan 4, 2026',
-    },
-    {
-        id: '3',
-        customer: 'Mike Johnson',
-        destination: 'Maldives',
-        amount: 250000,
-        status: 'confirmed' as const,
-        date: 'Jan 3, 2026',
-    },
-    {
-        id: '4',
-        customer: 'Emily Brown',
-        destination: 'Singapore',
-        amount: 45000,
-        status: 'cancelled' as const,
-        date: 'Jan 2, 2026',
-    },
-];
+    // Fetch upcoming bookings
+    const { data: upcomingBookings } = await supabase
+        .from('bookings')
+        .select('id, destination, travel_start, travel_end, adults, children, status, customer:customers(full_name)')
+        .gte('travel_start', new Date().toISOString())
+        .order('travel_start', { ascending: true })
+        .limit(5);
 
-export default function AgencyDashboardPage() {
+    // Calculate stats
+    const totalBookings = bookings?.length || 0;
+    const totalCustomers = customersCount || 0;
+    const totalRevenue = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+
+    const confirmedBookings = bookings?.filter(b => ['confirmed', 'ticketed', 'completed'].includes(b.status)).length || 0;
+    const conversionRate = totalBookings > 0 ? ((confirmedBookings / totalBookings) * 100).toFixed(1) : '0';
+
+    // Calculate lead stats by status
+    const leadStats = {
+        new: leads?.filter(l => l.status === 'new').length || 0,
+        contacted: leads?.filter(l => l.status === 'contacted').length || 0,
+        quoted: leads?.filter(l => l.status === 'quoted').length || 0,
+        negotiating: leads?.filter(l => l.status === 'negotiating').length || 0,
+        booked: leads?.filter(l => l.status === 'booked').length || 0,
+        lost: leads?.filter(l => l.status === 'lost').length || 0,
+    };
+
+    // Calculate booking stats by status
+    const bookingStats = {
+        total: totalBookings,
+        done: bookings?.filter(b => b.status === 'completed').length || 0,
+        booked: bookings?.filter(b => ['confirmed', 'ticketed', 'documents_pending'].includes(b.status)).length || 0,
+        cancelled: bookings?.filter(b => b.status === 'cancelled').length || 0,
+    };
+
+    // Calculate weekly revenue for chart (last 7 days)
+    const weeklyRevenue = [];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dayStart = new Date(date.setHours(0, 0, 0, 0)).toISOString();
+        const dayEnd = new Date(date.setHours(23, 59, 59, 999)).toISOString();
+
+        const dayRevenue = payments?.filter(p => {
+            const pDate = p.payment_date || p.created_at;
+            return pDate >= dayStart && pDate <= dayEnd;
+        }).reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+
+        weeklyRevenue.push({
+            name: days[new Date(dayStart).getDay()],
+            value: dayRevenue,
+        });
+    }
+
+    // Calculate destinations breakdown
+    const destinationCounts: Record<string, number> = {};
+    bookings?.forEach(b => {
+        if (b.destination) {
+            const dest = b.destination.split(',')[0].trim();
+            destinationCounts[dest] = (destinationCounts[dest] || 0) + 1;
+        }
+    });
+
+    const topDestinations = Object.entries(destinationCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([name, count], index) => ({
+            name,
+            value: count,
+            color: ['#3F83F8', '#0E9F6E', '#F59E0B', '#EF4444'][index] || '#6B7280',
+        }));
+
+    // Recent bookings for table
+    const recentBookings = bookings?.slice(0, 5).map(b => {
+        const customerData = b.customer as { full_name: string } | { full_name: string }[] | null;
+        const customerName = Array.isArray(customerData) ? customerData[0]?.full_name : customerData?.full_name;
+        return {
+            id: b.id,
+            customer: customerName || 'Unknown',
+            destination: b.destination || '-',
+            amount: b.total_amount,
+            status: b.status as 'confirmed' | 'pending' | 'cancelled',
+            date: new Date(b.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+        };
+    }) || [];
+
+    // Upcoming trips
+    const upcomingTrips = upcomingBookings?.map(b => ({
+        id: b.id,
+        destination: b.destination || 'TBD',
+        country: b.destination?.split(',')[1]?.trim() || '',
+        startDate: new Date(b.travel_start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        endDate: new Date(b.travel_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        travelers: b.adults + b.children,
+        status: b.status === 'confirmed' ? 'upcoming' as const : 'pending' as const,
+    })) || [];
+
     return (
-        <>
-            {/* Stats Row */}
-            <div className="grid grid-cols-4 mb-6">
-                <StatCard
-                    label="Total Booking"
-                    value="1,200"
-                    icon={Briefcase}
-                    variant="primary"
-                    trend={{ value: 2.98, isPositive: true }}
-                />
-                <StatCard
-                    label="Total New Customers"
-                    value="2,845"
-                    icon={Users}
-                    variant="error"
-                    trend={{ value: 1.45, isPositive: false }}
-                />
-                <StatCard
-                    label="Total Earnings"
-                    value="₹12,890"
-                    icon={DollarSign}
-                    variant="success"
-                    trend={{ value: 3.75, isPositive: true }}
-                />
-                <StatCard
-                    label="Conversion Rate"
-                    value="24.5%"
-                    icon={TrendingUp}
-                    variant="warning"
-                    trend={{ value: 1.2, isPositive: true }}
-                />
-            </div>
-
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-3 gap-6">
-                {/* Left Column - 2/3 width */}
-                <div style={{ gridColumn: 'span 2' }}>
-                    {/* Revenue Chart */}
-                    <RevenueChart data={revenueData} />
-
-                    {/* Trips Progress */}
-                    <div className="card mt-6">
-                        <div className="card-body">
-                            <TripsProgress stats={tripStats} />
-                        </div>
-                    </div>
-
-                    {/* Recent Bookings */}
-                    <div className="mt-6">
-                        <RecentBookings bookings={recentBookings} onViewAll={() => { }} />
-                    </div>
-                </div>
-
-                {/* Right Column - 1/3 width */}
-                <div>
-                    {/* Destinations Chart */}
-                    <DestinationsChart data={destinationsData} />
-
-                    {/* Calendar */}
-                    <div className="mt-6">
-                        <CalendarWidget
-                            events={[
-                                { date: new Date(), count: 3 },
-                                { date: new Date(Date.now() + 86400000 * 5), count: 1 },
-                            ]}
-                        />
-                    </div>
-
-                    {/* Upcoming Trips */}
-                    <div className="card mt-6">
-                        <div className="card-header">
-                            <h3 className="card-title">Upcoming Trips</h3>
-                            <button className="btn btn-ghost btn-sm">
-                                <Plus size={16} />
-                            </button>
-                        </div>
-                        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-3)' }}>
-                            {upcomingTrips.map((trip) => (
-                                <TripCard key={trip.id} {...trip} />
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Messages */}
-                    <div className="card mt-6">
-                        <div className="card-header">
-                            <h3 className="card-title">Messages</h3>
-                            <button className="btn btn-ghost btn-sm">...</button>
-                        </div>
-                        <div className="card-body">
-                            {messages.map((message) => (
-                                <MessageItem key={message.id} {...message} />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </>
+        <AgencyDashboardClient
+            stats={{
+                totalBookings,
+                totalCustomers,
+                totalRevenue,
+                conversionRate: `${conversionRate}%`,
+            }}
+            leadStats={leadStats}
+            bookingStats={bookingStats}
+            weeklyRevenue={weeklyRevenue}
+            topDestinations={topDestinations}
+            recentBookings={recentBookings}
+            upcomingTrips={upcomingTrips}
+        />
     );
 }
