@@ -80,11 +80,22 @@ export default function OnboardingPage() {
         try {
             const supabase = createClient();
 
-            // Create agency
+            // Generate a unique slug from the agency name
+            const baseSlug = agencyData.name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '');
+
+            // Add a random suffix to make it unique
+            const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
+
+            // Create agency with slug and email
             const { data: agency, error: agencyError } = await supabase
                 .from('agencies')
                 .insert({
                     name: agencyData.name,
+                    slug: uniqueSlug,
+                    email: user.email || '',
                     phone: agencyData.phone || null,
                     address: agencyData.address || null,
                     city: agencyData.city || null,
