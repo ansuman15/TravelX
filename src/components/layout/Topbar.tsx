@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
     Search,
     Bell,
@@ -9,7 +11,9 @@ import {
     LogOut,
     User,
     HelpCircle,
+    Loader2,
 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 interface TopbarProps {
     title: string;
@@ -18,13 +22,16 @@ interface TopbarProps {
         name: string;
         role: string;
         avatar?: string;
+        email?: string;
     };
     agencyName?: string;
 }
 
 export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
+    const router = useRouter();
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
 
     const userInitials = user?.name
         ?.split(' ')
@@ -32,6 +39,23 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
         .join('')
         .toUpperCase()
         .slice(0, 2) || 'U';
+
+    // Determine if this is admin or agency context
+    const isAdmin = user?.role === 'super_admin';
+    const basePath = isAdmin ? '/admin' : '/agency';
+
+    const handleLogout = async () => {
+        setLoggingOut(true);
+        try {
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            router.push('/login');
+            router.refresh();
+        } catch (error) {
+            console.error('Logout error:', error);
+            setLoggingOut(false);
+        }
+    };
 
     return (
         <header className="topbar">
@@ -126,19 +150,41 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
 
                     {showProfileMenu && (
                         <div className="dropdown-menu" style={{ right: 0 }}>
-                            <div className="dropdown-item">
+                            <Link
+                                href={`${basePath}/profile`}
+                                className="dropdown-item"
+                                onClick={() => setShowProfileMenu(false)}
+                            >
                                 <User size={16} />
                                 <span>My Profile</span>
-                            </div>
-                            <div className="dropdown-item">
+                            </Link>
+                            <Link
+                                href={`${basePath}/settings`}
+                                className="dropdown-item"
+                                onClick={() => setShowProfileMenu(false)}
+                            >
                                 <Settings size={16} />
                                 <span>Settings</span>
-                            </div>
+                            </Link>
                             <div className="dropdown-divider" />
-                            <div className="dropdown-item danger">
-                                <LogOut size={16} />
-                                <span>Logout</span>
-                            </div>
+                            <button
+                                className="dropdown-item danger"
+                                onClick={handleLogout}
+                                disabled={loggingOut}
+                                style={{ width: '100%', border: 'none', background: 'none', cursor: 'pointer' }}
+                            >
+                                {loggingOut ? (
+                                    <>
+                                        <Loader2 size={16} className="spin" />
+                                        <span>Logging out...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <LogOut size={16} />
+                                        <span>Logout</span>
+                                    </>
+                                )}
+                            </button>
                         </div>
                     )}
                 </div>
