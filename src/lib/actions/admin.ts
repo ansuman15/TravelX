@@ -15,6 +15,9 @@ export async function createAgency(formData: {
     address?: string;
     city?: string;
     gst_number?: string;
+    adminName?: string;
+    adminEmail?: string;
+    adminPassword?: string;
 }) {
     const user = await requireAuth();
 
@@ -34,23 +37,87 @@ export async function createAgency(formData: {
     // Add a random suffix to make it unique
     const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
 
-    const { data, error } = await supabase
+    // Generate a secure password if not provided
+    const generatedPassword = formData.adminPassword || generateSecurePassword();
+    const adminEmail = formData.adminEmail || formData.email || `admin@${uniqueSlug}.travelx.app`;
+
+    // Step 1: Create the agency
+    const { data: agency, error: agencyError } = await supabase
         .from('agencies')
         .insert({
-            ...formData,
-            slug: uniqueSlug,
+            name: formData.name,
+            phone: formData.phone,
             email: formData.email || `agency-${uniqueSlug}@travelx.app`,
+            address: formData.address,
+            city: formData.city,
+            gst_number: formData.gst_number,
+            slug: uniqueSlug,
             is_active: true,
         })
         .select()
         .single();
 
-    if (error) {
-        return { error: error.message };
+    if (agencyError) {
+        return { error: agencyError.message };
+    }
+
+    // Step 2: Create admin user in Supabase Auth
+    // Note: This requires service role key which has admin.createUser permission
+    // For now, we'll create the user record and they can use password reset
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: adminEmail,
+        password: generatedPassword,
+        options: {
+            data: {
+                full_name: formData.adminName || `${formData.name} Admin`,
+            },
+        },
+    });
+
+    if (authError) {
+        // Rollback agency creation if user creation fails
+        await supabase.from('agencies').delete().eq('id', agency.id);
+        return { error: `Failed to create admin user: ${authError.message}` };
+    }
+
+    // Step 3: Create user profile record linked to agency
+    if (authData.user) {
+        const { error: profileError } = await supabase
+            .from('users')
+            .upsert({
+                id: authData.user.id,
+                email: adminEmail,
+                full_name: formData.adminName || `${formData.name} Admin`,
+                role: 'agency_admin',
+                agency_id: agency.id,
+                is_active: true,
+            });
+
+        if (profileError) {
+            console.error('Failed to create user profile:', profileError);
+        }
     }
 
     revalidatePath('/admin/agencies');
-    return { data };
+
+    return {
+        data: agency,
+        credentials: {
+            email: adminEmail,
+            password: generatedPassword,
+            message: 'Agency created successfully with admin credentials',
+        }
+    };
+}
+
+// Generate a secure random password
+function generateSecurePassword(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
 }
 
 export async function updateAgency(
