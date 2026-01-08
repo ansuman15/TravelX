@@ -289,47 +289,6 @@ export function SubscriptionsPageClient({ agencies, stats }: SubscriptionsPageCl
                         Save Changes
                     </Button>
                 </div>
-
-                <style jsx>{`
-                    .plan-options {
-                        display: grid;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: var(--spacing-4);
-                    }
-                    .plan-option {
-                        border: 2px solid var(--border-light);
-                        border-radius: var(--radius-lg);
-                        padding: var(--spacing-4);
-                        cursor: pointer;
-                        transition: all 0.2s ease;
-                    }
-                    .plan-option:hover {
-                        border-color: var(--primary-200);
-                    }
-                    .plan-option.selected {
-                        border-color: var(--primary-500);
-                        background: var(--primary-50);
-                    }
-                    .plan-header {
-                        display: flex;
-                        align-items: center;
-                        gap: var(--spacing-2);
-                        margin-bottom: var(--spacing-3);
-                    }
-                    .plan-name {
-                        font-weight: var(--weight-semibold);
-                    }
-                    .plan-features {
-                        list-style: none;
-                        padding: 0;
-                        margin: 0;
-                        font-size: var(--font-sm);
-                        color: var(--text-secondary);
-                    }
-                    .plan-features li {
-                        padding: var(--spacing-1) 0;
-                    }
-                `}</style>
             </Modal>
 
             <style jsx>{`
@@ -343,7 +302,46 @@ export function SubscriptionsPageClient({ agencies, stats }: SubscriptionsPageCl
                     align-items: center;
                     justify-content: center;
                 }
+                .plan-options {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: var(--spacing-4);
+                }
+                .plan-option {
+                    border: 2px solid var(--border-light);
+                    border-radius: var(--radius-lg);
+                    padding: var(--spacing-4);
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                .plan-option:hover {
+                    border-color: var(--primary-200);
+                }
+                .plan-option.selected {
+                    border-color: var(--primary-500);
+                    background: var(--primary-50);
+                }
+                .plan-header {
+                    display: flex;
+                    align-items: center;
+                    gap: var(--spacing-2);
+                    margin-bottom: var(--spacing-3);
+                }
+                .plan-name {
+                    font-weight: var(--weight-semibold);
+                }
+                .plan-features {
+                    list-style: none;
+                    padding: 0;
+                    margin: 0;
+                    font-size: var(--font-sm);
+                    color: var(--text-secondary);
+                }
+                .plan-features li {
+                    padding: var(--spacing-1) 0;
+                }
             `}</style>
         </div>
     );
 }
+
