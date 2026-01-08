@@ -15,6 +15,8 @@ import {
     Download,
     FileText,
     FileSpreadsheet,
+    User,
+    Truck,
 } from 'lucide-react';
 import { Badge, Button, Select } from '@/components/ui';
 
@@ -40,19 +42,33 @@ interface MonthlyRevenue {
 interface StaffStats {
     id: string;
     name: string;
+    role: string;
     leads: number;
+    converted: number;
+    conversionRate: number;
     bookings: number;
     revenue: number;
+}
+
+interface SupplierMargin {
+    id: string;
+    name: string;
+    category: string;
+    totalCost: number;
+    totalSell: number;
+    margin: number;
+    transactions: number;
 }
 
 interface ReportsPageClientProps {
     stats: Stats;
     leadsBySource: Record<string, number>;
     bookingsByDestination: Record<string, number>;
+    revenueByDestination: Record<string, number>;
     monthlyRevenue: MonthlyRevenue[];
     paymentModes: Record<string, number>;
-    staffStats?: StaffStats[];
-    revenueByDestination?: Record<string, number>;
+    staffStats: StaffStats[];
+    supplierMargins: SupplierMargin[];
 }
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
@@ -61,10 +77,11 @@ export function ReportsPageClient({
     stats,
     leadsBySource,
     bookingsByDestination,
+    revenueByDestination,
     monthlyRevenue,
     paymentModes,
-    staffStats = [],
-    revenueByDestination = {},
+    staffStats,
+    supplierMargins,
 }: ReportsPageClientProps) {
     const [dateRange, setDateRange] = useState('this_month');
 
@@ -330,6 +347,129 @@ export function ReportsPageClient({
                     </div>
                 </div>
             </div>
+
+            {/* Staff Productivity & Revenue by Destination */}
+            <div className="grid grid-cols-2 gap-6 mt-6">
+                {/* Staff Productivity */}
+                <div className="card">
+                    <div className="card-header">
+                        <User size={18} className="text-primary-500" />
+                        <span>Staff Productivity</span>
+                    </div>
+                    <div className="card-body" style={{ padding: 0 }}>
+                        {staffStats.length === 0 ? (
+                            <div className="text-center text-secondary py-8">No staff data available</div>
+                        ) : (
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Staff</th>
+                                        <th>Leads</th>
+                                        <th>Conv. Rate</th>
+                                        <th>Revenue</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {staffStats.slice(0, 5).map((staff) => (
+                                        <tr key={staff.id}>
+                                            <td>
+                                                <div className="font-medium">{staff.name}</div>
+                                                <div className="text-xs text-secondary capitalize">{staff.role.replace('_', ' ')}</div>
+                                            </td>
+                                            <td>{staff.leads}</td>
+                                            <td>
+                                                <Badge variant={staff.conversionRate >= 30 ? 'success' : staff.conversionRate >= 15 ? 'warning' : 'default'}>
+                                                    {staff.conversionRate.toFixed(0)}%
+                                                </Badge>
+                                            </td>
+                                            <td className="font-medium">{formatCurrency(staff.revenue)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+
+                {/* Revenue by Destination */}
+                <div className="card">
+                    <div className="card-header">
+                        <DollarSign size={18} className="text-primary-500" />
+                        <span>Revenue by Destination</span>
+                    </div>
+                    <div className="card-body">
+                        <div className="breakdown-list">
+                            {Object.entries(revenueByDestination).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([dest, revenue], i) => (
+                                <div key={dest} className="breakdown-item">
+                                    <div className="breakdown-label">
+                                        <div className="color-dot" style={{ background: COLORS[i % COLORS.length] }} />
+                                        <span>{dest}</span>
+                                    </div>
+                                    <div className="breakdown-value">
+                                        <span className="font-medium">{formatCurrency(revenue)}</span>
+                                    </div>
+                                    <div className="breakdown-bar">
+                                        <div
+                                            className="breakdown-bar-fill"
+                                            style={{
+                                                width: `${(revenue / (Object.values(revenueByDestination).reduce((a, b) => a + b, 0) || 1)) * 100}%`,
+                                                background: COLORS[i % COLORS.length],
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Supplier Margins */}
+            {supplierMargins.length > 0 && (
+                <div className="card mt-6">
+                    <div className="card-header">
+                        <Truck size={18} className="text-primary-500" />
+                        <span>Supplier Margins</span>
+                        <Button variant="ghost" size="sm" className="ml-auto" onClick={() => exportToCSV(
+                            supplierMargins.map(s => ({ Name: s.name, Category: s.category, Revenue: s.totalSell, Cost: s.totalCost, Margin: s.margin.toFixed(1) + '%' })),
+                            'supplier_margins'
+                        )}>
+                            <Download size={14} />
+                            Export
+                        </Button>
+                    </div>
+                    <div className="card-body" style={{ padding: 0 }}>
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Supplier</th>
+                                    <th>Category</th>
+                                    <th>Revenue</th>
+                                    <th>Cost</th>
+                                    <th>Margin</th>
+                                    <th>Transactions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {supplierMargins.slice(0, 10).map((supplier) => (
+                                    <tr key={supplier.id}>
+                                        <td className="font-medium">{supplier.name}</td>
+                                        <td className="capitalize">{supplier.category}</td>
+                                        <td>{formatCurrency(supplier.totalSell)}</td>
+                                        <td>{formatCurrency(supplier.totalCost)}</td>
+                                        <td>
+                                            <Badge variant={supplier.margin >= 20 ? 'success' : supplier.margin >= 10 ? 'warning' : 'error'}>
+                                                {supplier.margin.toFixed(1)}%
+                                            </Badge>
+                                        </td>
+                                        <td>{supplier.transactions}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             <style jsx>{`
                 .stat-badge {
