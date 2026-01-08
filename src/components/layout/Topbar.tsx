@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -12,6 +12,7 @@ import {
     User,
     HelpCircle,
     Loader2,
+    X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -32,6 +33,24 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
+
+    const profileRef = useRef<HTMLDivElement>(null);
+    const notificationRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdowns when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+                setShowProfileMenu(false);
+            }
+            if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+                setShowNotifications(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const userInitials = user?.name
         ?.split(' ')
@@ -57,6 +76,16 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
         }
     };
 
+    const handleProfileClick = () => {
+        setShowNotifications(false);
+        setShowProfileMenu(!showProfileMenu);
+    };
+
+    const handleNotificationClick = () => {
+        setShowProfileMenu(false);
+        setShowNotifications(!showNotifications);
+    };
+
     return (
         <header className="topbar">
             <div className="topbar-left">
@@ -78,29 +107,28 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
                 </div>
 
                 {/* Help */}
-                <button className="topbar-icon-btn" title="Help">
+                <button className="topbar-icon-btn" title="Help" type="button">
                     <HelpCircle size={20} />
                 </button>
 
                 {/* Notifications */}
-                <div className="dropdown">
+                <div className="dropdown" ref={notificationRef}>
                     <button
                         className="topbar-icon-btn"
-                        onClick={() => setShowNotifications(!showNotifications)}
+                        onClick={handleNotificationClick}
+                        type="button"
                     >
                         <Bell size={20} />
                         <span className="notification-dot" />
                     </button>
 
                     {showNotifications && (
-                        <div className="dropdown-menu" style={{ width: '320px', right: 0 }}>
-                            <div style={{ padding: 'var(--spacing-4)', borderBottom: '1px solid var(--border-light)' }}>
-                                <div className="flex justify-between items-center">
-                                    <span className="font-semibold">Notifications</span>
-                                    <button className="btn btn-ghost btn-sm">Mark all read</button>
-                                </div>
+                        <div className="dropdown-menu notification-dropdown">
+                            <div className="dropdown-header">
+                                <span className="font-semibold">Notifications</span>
+                                <button className="btn-text" type="button">Mark all read</button>
                             </div>
-                            <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+                            <div className="dropdown-body">
                                 <NotificationItem
                                     title="New Booking"
                                     message="John Doe confirmed booking for Bali trip"
@@ -119,18 +147,19 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
                                     time="2 hours ago"
                                 />
                             </div>
-                            <div style={{ padding: 'var(--spacing-3)', borderTop: '1px solid var(--border-light)', textAlign: 'center' }}>
-                                <button className="btn btn-ghost btn-sm">View all notifications</button>
+                            <div className="dropdown-footer">
+                                <button className="btn-text" type="button">View all notifications</button>
                             </div>
                         </div>
                     )}
                 </div>
 
                 {/* Profile */}
-                <div className="dropdown">
-                    <div
+                <div className="dropdown" ref={profileRef}>
+                    <button
                         className="topbar-profile"
-                        onClick={() => setShowProfileMenu(!showProfileMenu)}
+                        onClick={handleProfileClick}
+                        type="button"
                     >
                         <div className="topbar-avatar">
                             {user?.avatar ? (
@@ -145,11 +174,11 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
                                 {agencyName || user?.role || 'Agency'}
                             </span>
                         </div>
-                        <ChevronDown size={16} style={{ color: 'var(--text-tertiary)' }} />
-                    </div>
+                        <ChevronDown size={16} className="chevron-icon" />
+                    </button>
 
                     {showProfileMenu && (
-                        <div className="dropdown-menu" style={{ right: 0 }}>
+                        <div className="dropdown-menu profile-dropdown">
                             <Link
                                 href={`${basePath}/profile`}
                                 className="dropdown-item"
@@ -171,7 +200,7 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
                                 className="dropdown-item danger"
                                 onClick={handleLogout}
                                 disabled={loggingOut}
-                                style={{ width: '100%', border: 'none', background: 'none', cursor: 'pointer' }}
+                                type="button"
                             >
                                 {loggingOut ? (
                                     <>
@@ -189,6 +218,237 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
                     )}
                 </div>
             </div>
+
+            <style jsx>{`
+                .topbar {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 16px 24px;
+                    background: white;
+                    border-bottom: 1px solid var(--border-light);
+                    position: sticky;
+                    top: 0;
+                    z-index: 100;
+                }
+                .topbar-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                }
+                .topbar-title {
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    margin: 0;
+                }
+                .topbar-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+                .topbar-search {
+                    position: relative;
+                    display: none;
+                }
+                @media (min-width: 768px) {
+                    .topbar-search {
+                        display: block;
+                    }
+                }
+                .topbar-search-input {
+                    width: 240px;
+                    padding: 8px 12px 8px 36px;
+                    border: 1px solid var(--border-light);
+                    border-radius: 8px;
+                    font-size: 14px;
+                    background: var(--bg-secondary);
+                    transition: all 0.2s ease;
+                }
+                .topbar-search-input:focus {
+                    outline: none;
+                    border-color: var(--primary-500);
+                    background: white;
+                    box-shadow: 0 0 0 3px var(--primary-100);
+                }
+                .topbar-icon-btn {
+                    position: relative;
+                    width: 40px;
+                    height: 40px;
+                    border: none;
+                    background: transparent;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--text-secondary);
+                    transition: all 0.2s ease;
+                }
+                .topbar-icon-btn:hover {
+                    background: var(--bg-secondary);
+                    color: var(--text-primary);
+                }
+                .notification-dot {
+                    position: absolute;
+                    top: 8px;
+                    right: 8px;
+                    width: 8px;
+                    height: 8px;
+                    background: var(--error-500);
+                    border-radius: 50%;
+                    border: 2px solid white;
+                }
+                .dropdown {
+                    position: relative;
+                }
+                .dropdown-menu {
+                    position: absolute;
+                    top: calc(100% + 8px);
+                    right: 0;
+                    min-width: 200px;
+                    background: white;
+                    border: 1px solid var(--border-light);
+                    border-radius: 12px;
+                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+                    z-index: 1000;
+                    overflow: hidden;
+                    animation: dropdownFadeIn 0.15s ease;
+                }
+                @keyframes dropdownFadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-8px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                .notification-dropdown {
+                    width: 340px;
+                }
+                .profile-dropdown {
+                    min-width: 180px;
+                }
+                .dropdown-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 12px 16px;
+                    border-bottom: 1px solid var(--border-light);
+                }
+                .dropdown-body {
+                    max-height: 300px;
+                    overflow-y: auto;
+                }
+                .dropdown-footer {
+                    padding: 8px 16px;
+                    border-top: 1px solid var(--border-light);
+                    text-align: center;
+                }
+                .btn-text {
+                    background: none;
+                    border: none;
+                    color: var(--primary-600);
+                    font-size: 13px;
+                    cursor: pointer;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    transition: background 0.2s ease;
+                }
+                .btn-text:hover {
+                    background: var(--primary-50);
+                }
+                .dropdown-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 10px 16px;
+                    color: var(--text-primary);
+                    text-decoration: none;
+                    font-size: 14px;
+                    cursor: pointer;
+                    transition: background 0.15s ease;
+                    border: none;
+                    background: none;
+                    width: 100%;
+                    text-align: left;
+                }
+                .dropdown-item:hover {
+                    background: var(--bg-secondary);
+                }
+                .dropdown-item.danger {
+                    color: var(--error-600);
+                }
+                .dropdown-item.danger:hover {
+                    background: var(--error-50);
+                }
+                .dropdown-divider {
+                    height: 1px;
+                    background: var(--border-light);
+                    margin: 4px 0;
+                }
+                .topbar-profile {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 6px 12px 6px 6px;
+                    border: 1px solid var(--border-light);
+                    border-radius: 40px;
+                    cursor: pointer;
+                    background: white;
+                    transition: all 0.2s ease;
+                }
+                .topbar-profile:hover {
+                    border-color: var(--primary-200);
+                    background: var(--bg-secondary);
+                }
+                .topbar-avatar {
+                    width: 34px;
+                    height: 34px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+                    color: white;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 13px;
+                    font-weight: 600;
+                }
+                .topbar-avatar img {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 50%;
+                    object-fit: cover;
+                }
+                .topbar-user-info {
+                    display: flex;
+                    flex-direction: column;
+                }
+                .topbar-user-name {
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    line-height: 1.3;
+                }
+                .topbar-user-role {
+                    font-size: 11px;
+                    color: var(--text-tertiary);
+                    text-transform: capitalize;
+                }
+                .chevron-icon {
+                    color: var(--text-tertiary);
+                    transition: transform 0.2s ease;
+                }
+                .spin {
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </header>
     );
 }
@@ -203,21 +463,54 @@ interface NotificationItemProps {
 
 function NotificationItem({ title, message, time, unread }: NotificationItemProps) {
     return (
-        <div
-            className="dropdown-item"
-            style={{
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: '4px',
-                background: unread ? 'var(--primary-50)' : 'transparent',
-                padding: 'var(--spacing-3) var(--spacing-4)',
-            }}
-        >
-            <div className="flex justify-between items-center" style={{ width: '100%' }}>
-                <span className="font-semibold text-sm">{title}</span>
-                <span className="text-xs text-tertiary">{time}</span>
+        <div className={`notification-item ${unread ? 'unread' : ''}`}>
+            <div className="notification-header">
+                <span className="notification-title">{title}</span>
+                <span className="notification-time">{time}</span>
             </div>
-            <span className="text-sm text-secondary">{message}</span>
+            <p className="notification-message">{message}</p>
+
+            <style jsx>{`
+                .notification-item {
+                    padding: 12px 16px;
+                    cursor: pointer;
+                    transition: background 0.15s ease;
+                    border-bottom: 1px solid var(--border-light);
+                }
+                .notification-item:last-child {
+                    border-bottom: none;
+                }
+                .notification-item:hover {
+                    background: var(--bg-secondary);
+                }
+                .notification-item.unread {
+                    background: var(--primary-50);
+                }
+                .notification-item.unread:hover {
+                    background: var(--primary-100);
+                }
+                .notification-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 4px;
+                }
+                .notification-title {
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                }
+                .notification-time {
+                    font-size: 11px;
+                    color: var(--text-tertiary);
+                }
+                .notification-message {
+                    font-size: 13px;
+                    color: var(--text-secondary);
+                    margin: 0;
+                    line-height: 1.4;
+                }
+            `}</style>
         </div>
     );
 }
