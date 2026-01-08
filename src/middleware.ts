@@ -37,7 +37,7 @@ export async function middleware(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
 
     // Public routes that don't require authentication
-    const publicRoutes = ['/login', '/api/leads/intake'];
+    const publicRoutes = ['/login', '/signup', '/verify-email', '/forgot-password', '/reset-password', '/auth/callback', '/api/leads/intake'];
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
     // If no user and trying to access protected route, redirect to login
@@ -48,17 +48,21 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    // If user exists and trying to access login, redirect to appropriate dashboard
-    if (user && pathname === '/login') {
+    // If user exists and trying to access login/signup, redirect to appropriate dashboard
+    if (user && (pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password')) {
         // Get user's role from the users table
         const { data: userData } = await supabase
             .from('users')
-            .select('role')
+            .select('role, agency_id')
             .eq('id', user.id)
             .single();
 
         const url = request.nextUrl.clone();
-        if (userData?.role === 'super_admin') {
+
+        // Check if user needs onboarding
+        if (!userData || (!userData.agency_id && userData.role !== 'super_admin')) {
+            url.pathname = '/onboarding';
+        } else if (userData?.role === 'super_admin') {
             url.pathname = '/admin';
         } else {
             url.pathname = '/agency';

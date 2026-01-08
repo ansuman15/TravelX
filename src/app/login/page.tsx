@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { MapPin, Eye, EyeOff, Loader2 } from 'lucide-react';
 
@@ -39,14 +40,14 @@ function LoginForm() {
         // Get user role to determine redirect
         const { data: userData } = await supabase
           .from('users')
-          .select('role, is_active')
+          .select('role, is_active, agency_id')
           .eq('id', data.user.id)
           .single();
 
         if (!userData) {
-          setError('User profile not found. Please contact administrator.');
-          await supabase.auth.signOut();
-          setLoading(false);
+          // New user - needs onboarding
+          router.push('/onboarding');
+          router.refresh();
           return;
         }
 
@@ -54,6 +55,13 @@ function LoginForm() {
           setError('Your account has been deactivated. Please contact administrator.');
           await supabase.auth.signOut();
           setLoading(false);
+          return;
+        }
+
+        if (!userData.agency_id && userData.role !== 'super_admin') {
+          // No agency assigned - needs onboarding
+          router.push('/onboarding');
+          router.refresh();
           return;
         }
 
@@ -124,6 +132,11 @@ function LoginForm() {
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          <div style={{ textAlign: 'right', marginTop: '8px' }}>
+            <Link href="/forgot-password" className="text-sm text-primary-600">
+              Forgot password?
+            </Link>
+          </div>
         </div>
 
         <button
@@ -144,7 +157,7 @@ function LoginForm() {
 
       <div className="login-footer">
         <p>
-          Contact your administrator if you need access or forgot your password.
+          Don't have an account? <Link href="/signup" className="text-primary-600">Sign up</Link>
         </p>
       </div>
     </div>
