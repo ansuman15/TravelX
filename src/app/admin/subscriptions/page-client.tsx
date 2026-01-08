@@ -89,7 +89,7 @@ export function SubscriptionsPageClient({ agencies, stats }: SubscriptionsPageCl
             case 'pro':
                 return <Badge variant="primary">Pro</Badge>;
             default:
-                return <Badge variant="secondary">Basic</Badge>;
+                return <Badge variant="gray">Basic</Badge>;
         }
     };
 

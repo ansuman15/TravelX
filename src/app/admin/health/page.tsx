@@ -32,16 +32,16 @@ export default async function AdminHealthPage() {
 
     const healthData = {
         database: {
-            status: dbError ? 'error' : 'healthy',
+            status: (dbError ? 'error' : 'healthy') as 'healthy' | 'warning' | 'error',
             latency: dbLatency,
             message: dbError ? dbError.message : 'Connected to Supabase',
         },
         storage: {
-            status: 'healthy',
+            status: 'healthy' as const,
             message: 'Supabase Storage ready',
         },
         auth: {
-            status: 'healthy',
+            status: 'healthy' as const,
             message: 'Supabase Auth operational',
         },
         stats: {

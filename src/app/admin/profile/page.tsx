@@ -18,9 +18,10 @@ export default async function AdminProfilePage() {
                 email: user.email,
                 full_name: user.full_name,
                 role: user.role,
-                phone: user.phone || null,
-                avatar_url: user.avatar_url || null,
+                phone: null,
+                avatar_url: null,
             }}
         />
     );
 }
+
