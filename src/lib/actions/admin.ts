@@ -25,10 +25,21 @@ export async function createAgency(formData: {
 
     const supabase = await createClient();
 
+    // Generate a unique slug from the agency name
+    const baseSlug = formData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
+    // Add a random suffix to make it unique
+    const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
+
     const { data, error } = await supabase
         .from('agencies')
         .insert({
             ...formData,
+            slug: uniqueSlug,
+            email: formData.email || `agency-${uniqueSlug}@travelx.app`,
             is_active: true,
         })
         .select()
