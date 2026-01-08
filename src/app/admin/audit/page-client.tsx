@@ -74,9 +74,9 @@ export function AuditPageClient({ logs }: AuditPageClientProps) {
             case 'payment':
                 return <Badge variant="success">Payment</Badge>;
             case 'status_change':
-                return <Badge variant="secondary">Status Change</Badge>;
+                return <Badge variant="gray">Status Change</Badge>;
             default:
-                return <Badge variant="secondary">{action}</Badge>;
+                return <Badge variant="gray">{action}</Badge>;
         }
     };
 
