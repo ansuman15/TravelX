@@ -21,6 +21,7 @@ interface ButtonProps {
   onClick?: () => void;
   type?: 'button' | 'submit' | 'reset';
   className?: string;
+  title?: string;
 }
 
 export function Button({
@@ -34,6 +35,7 @@ export function Button({
   onClick,
   type = 'button',
   className = '',
+  title,
 }: ButtonProps) {
   const sizeClasses = {
     sm: 'btn-sm',
@@ -47,6 +49,7 @@ export function Button({
       className={`btn btn-${variant} ${sizeClasses[size]} ${className}`}
       disabled={disabled || loading}
       onClick={onClick}
+      title={title}
     >
       {loading ? (
         <span className="spinner" />

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
     TrendingUp,
     TrendingDown,
@@ -11,8 +12,11 @@ import {
     ArrowDownRight,
     BarChart3,
     PieChart,
+    Download,
+    FileText,
+    FileSpreadsheet,
 } from 'lucide-react';
-import { Badge } from '@/components/ui';
+import { Badge, Button, Select } from '@/components/ui';
 
 interface Stats {
     thisMonthRevenue: number;
@@ -33,12 +37,22 @@ interface MonthlyRevenue {
     revenue: number;
 }
 
+interface StaffStats {
+    id: string;
+    name: string;
+    leads: number;
+    bookings: number;
+    revenue: number;
+}
+
 interface ReportsPageClientProps {
     stats: Stats;
     leadsBySource: Record<string, number>;
     bookingsByDestination: Record<string, number>;
     monthlyRevenue: MonthlyRevenue[];
     paymentModes: Record<string, number>;
+    staffStats?: StaffStats[];
+    revenueByDestination?: Record<string, number>;
 }
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
@@ -49,7 +63,11 @@ export function ReportsPageClient({
     bookingsByDestination,
     monthlyRevenue,
     paymentModes,
+    staffStats = [],
+    revenueByDestination = {},
 }: ReportsPageClientProps) {
+    const [dateRange, setDateRange] = useState('this_month');
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
@@ -58,10 +76,39 @@ export function ReportsPageClient({
         }).format(amount);
     };
 
+    const exportToCSV = (data: Record<string, unknown>[], filename: string) => {
+        if (data.length === 0) return;
+        const headers = Object.keys(data[0]);
+        const csvContent = [
+            headers.join(','),
+            ...data.map(row => headers.map(h => JSON.stringify(row[h] ?? '')).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const exportRevenueCSV = () => {
+        exportToCSV(monthlyRevenue.map(m => ({ Month: m.month, Revenue: m.revenue })), 'revenue_trend');
+    };
+
+    const exportLeadsCSV = () => {
+        exportToCSV(Object.entries(leadsBySource).map(([source, count]) => ({ Source: source, Leads: count })), 'leads_by_source');
+    };
+
+    const exportBookingsCSV = () => {
+        exportToCSV(Object.entries(bookingsByDestination).map(([dest, count]) => ({ Destination: dest, Bookings: count })), 'bookings_by_destination');
+    };
+
     const maxRevenue = Math.max(...monthlyRevenue.map(m => m.revenue), 1);
-    const totalSourceLeads = Object.values(leadsBySource).reduce((a, b) => a + b, 0);
-    const totalDestBookings = Object.values(bookingsByDestination).reduce((a, b) => a + b, 0);
-    const totalPaymentModes = Object.values(paymentModes).reduce((a, b) => a + b, 0);
+    const totalSourceLeads = Object.values(leadsBySource).reduce((a, b) => a + b, 0) || 1;
+    const totalDestBookings = Object.values(bookingsByDestination).reduce((a, b) => a + b, 0) || 1;
+    const totalPaymentModes = Object.values(paymentModes).reduce((a, b) => a + b, 0) || 1;
 
     return (
         <div className="page-content">
@@ -70,6 +117,19 @@ export function ReportsPageClient({
                 <div>
                     <h1 className="text-2xl font-bold">Reports & Analytics</h1>
                     <p className="text-secondary text-sm">Business performance insights</p>
+                </div>
+                <div className="flex gap-3">
+                    <Select value={dateRange} onChange={(e) => setDateRange(e.target.value)} style={{ width: '150px' }}>
+                        <option value="this_week">This Week</option>
+                        <option value="this_month">This Month</option>
+                        <option value="last_month">Last Month</option>
+                        <option value="this_quarter">This Quarter</option>
+                        <option value="this_year">This Year</option>
+                    </Select>
+                    <Button variant="outline" onClick={exportRevenueCSV}>
+                        <Download size={16} />
+                        Export CSV
+                    </Button>
                 </div>
             </div>
 
