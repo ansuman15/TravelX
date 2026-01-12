@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
+import { createLeadSchema, updateLeadSchema, createCustomerSchema, validateInput } from '@/lib/validations/schemas';
 
 // ============================================
 // LEADS MANAGEMENT
@@ -25,13 +26,19 @@ export async function createLead(formData: {
 }) {
     const user = await requireAuth();
 
+    // Validate input
+    const validation = validateInput(createLeadSchema, formData);
+    if (!validation.success) {
+        return { error: validation.error };
+    }
+
     const supabase = await createClient();
 
     const { data, error } = await supabase
         .from('leads')
         .insert({
             agency_id: user.agency_id,
-            ...formData,
+            ...validation.data,
         })
         .select()
         .single();
