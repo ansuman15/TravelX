@@ -17,10 +17,7 @@ export default async function AgencyItinerariesPage() {
     // Fetch itineraries from database
     const { data: itineraries, error } = await supabase
         .from('itineraries')
-        .select(`
-            *,
-            creator:users!itineraries_created_by_fkey(id, full_name)
-        `)
+        .select('*')
         .eq('agency_id', user.agency_id)
         .order('created_at', { ascending: false });
 
@@ -28,17 +25,16 @@ export default async function AgencyItinerariesPage() {
         console.error('Error fetching itineraries:', error);
     }
 
-    // Transform for client component
+    // Transform for client component - handle different schema versions
     const formattedItineraries = (itineraries || []).map(it => ({
         id: it.id,
         name: it.name,
-        destination: it.destination,
-        days: it.duration_days,
-        status: it.status as 'draft' | 'active' | 'archived',
+        destination: it.destination || '',
+        days: it.duration_days || 0,
+        // Handle both old schema (is_draft) and new schema (status)
+        status: it.status || (it.is_draft ? 'draft' : 'active') as 'draft' | 'active' | 'archived',
         created_at: it.created_at,
         used_count: it.used_count || 0,
-        description: it.description,
-        cover_image: it.cover_image,
     }));
 
     return (

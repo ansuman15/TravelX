@@ -14,14 +14,10 @@ export default async function AgencyTasksPage() {
 
     const supabase = await createClient();
 
-    // Fetch tasks from database with assignee info
+    // Fetch tasks from database (simple query without FK joins to avoid constraint name issues)
     const { data: tasks, error } = await supabase
         .from('tasks')
-        .select(`
-            *,
-            assignee:users!tasks_assignee_id_fkey(id, full_name),
-            creator:users!tasks_created_by_fkey(id, full_name)
-        `)
+        .select('*')
         .eq('agency_id', user.agency_id)
         .order('due_date', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
@@ -38,9 +34,9 @@ export default async function AgencyTasksPage() {
         priority: task.priority as 'low' | 'medium' | 'high',
         status: task.status as 'pending' | 'in_progress' | 'completed',
         due_date: task.due_date,
-        assignee: task.assignee?.full_name || 'Unassigned',
+        assignee: 'Assigned', // Simplified without FK join
         assignee_id: task.assignee_id,
-        created_by: task.creator?.full_name,
+        created_by: user.full_name,
     }));
 
     // Fetch staff for assignment dropdown

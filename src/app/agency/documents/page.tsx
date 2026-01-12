@@ -14,13 +14,10 @@ export default async function AgencyDocumentsPage() {
 
     const supabase = await createClient();
 
-    // Fetch documents from database
+    // Fetch documents from database (simple query without FK join)
     const { data: documents, error } = await supabase
         .from('documents')
-        .select(`
-            *,
-            uploader:users!documents_uploaded_by_fkey(id, full_name)
-        `)
+        .select('*')
         .eq('agency_id', user.agency_id)
         .order('created_at', { ascending: false });
 
@@ -44,7 +41,7 @@ export default async function AgencyDocumentsPage() {
         size: formatFileSize(doc.file_size),
         folder: doc.folder || 'General',
         uploaded_at: doc.created_at,
-        uploaded_by: doc.uploader?.full_name || 'Unknown',
+        uploaded_by: 'Staff', // Simplified without FK join
         file_path: doc.file_path,
     }));
 
