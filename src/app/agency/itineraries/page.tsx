@@ -1,4 +1,5 @@
 import { requireAuth } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ItinerariesPageClient } from './page-client';
 
@@ -11,40 +12,38 @@ export default async function AgencyItinerariesPage() {
         redirect('/onboarding');
     }
 
-    // Mock itineraries - TODO: Create itineraries table
-    const mockItineraries = [
-        {
-            id: '1',
-            name: 'Bali Adventure - 5 Days',
-            destination: 'Bali, Indonesia',
-            days: 5,
-            status: 'active' as const,
-            created_at: new Date().toISOString(),
-            used_count: 12,
-        },
-        {
-            id: '2',
-            name: 'Dubai Luxury Tour - 7 Days',
-            destination: 'Dubai, UAE',
-            days: 7,
-            status: 'active' as const,
-            created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-            used_count: 8,
-        },
-        {
-            id: '3',
-            name: 'Thailand Explorer - 6 Days',
-            destination: 'Bangkok & Phuket',
-            days: 6,
-            status: 'draft' as const,
-            created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
-            used_count: 0,
-        },
-    ];
+    const supabase = await createClient();
+
+    // Fetch itineraries from database
+    const { data: itineraries, error } = await supabase
+        .from('itineraries')
+        .select(`
+            *,
+            creator:users!itineraries_created_by_fkey(id, full_name)
+        `)
+        .eq('agency_id', user.agency_id)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching itineraries:', error);
+    }
+
+    // Transform for client component
+    const formattedItineraries = (itineraries || []).map(it => ({
+        id: it.id,
+        name: it.name,
+        destination: it.destination,
+        days: it.duration_days,
+        status: it.status as 'draft' | 'active' | 'archived',
+        created_at: it.created_at,
+        used_count: it.used_count || 0,
+        description: it.description,
+        cover_image: it.cover_image,
+    }));
 
     return (
         <ItinerariesPageClient
-            itineraries={mockItineraries}
+            itineraries={formattedItineraries}
         />
     );
 }

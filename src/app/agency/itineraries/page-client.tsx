@@ -20,7 +20,7 @@ interface Itinerary {
     name: string;
     destination: string;
     days: number;
-    status: 'active' | 'draft';
+    status: 'active' | 'draft' | 'archived';
     created_at: string;
     used_count: number;
 }

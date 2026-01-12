@@ -1,4 +1,5 @@
 import { requireAuth } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { MessagesPageClient } from './page-client';
 
@@ -11,18 +12,34 @@ export default async function AgencyMessagesPage() {
         redirect('/onboarding');
     }
 
-    // Mock notifications/messages - TODO: Implement real notifications
-    const mockNotifications = [
-        { id: '1', type: 'booking' as const, title: 'New Booking', message: 'John Doe confirmed booking for Bali trip', time: new Date().toISOString(), read: false },
-        { id: '2', type: 'payment' as const, title: 'Payment Received', message: '₹50,000 received for booking #1234', time: new Date(Date.now() - 3600000).toISOString(), read: false },
-        { id: '3', type: 'task' as const, title: 'Task Due Tomorrow', message: 'Visa application for Sarah pending', time: new Date(Date.now() - 7200000).toISOString(), read: true },
-        { id: '4', type: 'system' as const, title: 'System Update', message: 'New features added to the dashboard', time: new Date(Date.now() - 86400000).toISOString(), read: true },
-        { id: '5', type: 'booking' as const, title: 'Booking Cancelled', message: 'Customer Mike cancelled Thailand trip', time: new Date(Date.now() - 86400000 * 2).toISOString(), read: true },
-    ];
+    const supabase = await createClient();
+
+    // Fetch notifications from database
+    const { data: notifications, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+    if (error) {
+        console.error('Error fetching notifications:', error);
+    }
+
+    // Transform data for client component
+    const formattedNotifications = (notifications || []).map(n => ({
+        id: n.id,
+        type: n.type as 'booking' | 'payment' | 'task' | 'system' | 'message',
+        title: n.title,
+        message: n.message,
+        time: n.created_at,
+        read: n.read,
+        data: n.data,
+    }));
 
     return (
         <MessagesPageClient
-            notifications={mockNotifications}
+            notifications={formattedNotifications}
             currentUser={user.full_name}
         />
     );

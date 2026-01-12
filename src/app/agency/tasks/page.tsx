@@ -12,19 +12,50 @@ export default async function AgencyTasksPage() {
         redirect('/onboarding');
     }
 
-    // For now, return mock tasks - TODO: Create tasks table in database
-    const mockTasks = [
-        { id: '1', title: 'Follow up with client - Bali trip', priority: 'high' as const, due_date: new Date().toISOString(), status: 'pending' as const, assignee: user.full_name },
-        { id: '2', title: 'Prepare visa documents for Dubai package', priority: 'medium' as const, due_date: new Date(Date.now() + 86400000).toISOString(), status: 'in_progress' as const, assignee: user.full_name },
-        { id: '3', title: 'Confirm hotel booking for Thailand trip', priority: 'high' as const, due_date: new Date(Date.now() + 172800000).toISOString(), status: 'pending' as const, assignee: user.full_name },
-        { id: '4', title: 'Send invoice to customer', priority: 'low' as const, due_date: new Date(Date.now() + 259200000).toISOString(), status: 'completed' as const, assignee: user.full_name },
-        { id: '5', title: 'Update package pricing', priority: 'medium' as const, due_date: new Date(Date.now() + 345600000).toISOString(), status: 'pending' as const, assignee: user.full_name },
-    ];
+    const supabase = await createClient();
+
+    // Fetch tasks from database with assignee info
+    const { data: tasks, error } = await supabase
+        .from('tasks')
+        .select(`
+            *,
+            assignee:users!tasks_assignee_id_fkey(id, full_name),
+            creator:users!tasks_created_by_fkey(id, full_name)
+        `)
+        .eq('agency_id', user.agency_id)
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching tasks:', error);
+    }
+
+    // Transform data for client component
+    const formattedTasks = (tasks || []).map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        priority: task.priority as 'low' | 'medium' | 'high',
+        status: task.status as 'pending' | 'in_progress' | 'completed',
+        due_date: task.due_date,
+        assignee: task.assignee?.full_name || 'Unassigned',
+        assignee_id: task.assignee_id,
+        created_by: task.creator?.full_name,
+    }));
+
+    // Fetch staff for assignment dropdown
+    const { data: staff } = await supabase
+        .from('users')
+        .select('id, full_name')
+        .eq('agency_id', user.agency_id)
+        .eq('is_active', true);
 
     return (
         <TasksPageClient
-            tasks={mockTasks}
+            tasks={formattedTasks}
             currentUser={user.full_name}
+            currentUserId={user.id}
+            staffList={staff || []}
         />
     );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Bell,
     Check,
@@ -10,18 +11,24 @@ import {
     CreditCard,
     CheckSquare,
     Settings,
-    X,
+    MessageSquare,
     Circle,
 } from 'lucide-react';
 import { Button, Badge } from '@/components/ui';
+import {
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    deleteNotification as deleteNotificationAction
+} from '@/lib/actions/notifications';
 
 interface Notification {
     id: string;
-    type: 'booking' | 'payment' | 'task' | 'system';
+    type: 'booking' | 'payment' | 'task' | 'system' | 'message';
     title: string;
-    message: string;
+    message: string | null;
     time: string;
     read: boolean;
+    data?: Record<string, unknown>;
 }
 
 interface MessagesPageClientProps {
@@ -30,8 +37,11 @@ interface MessagesPageClientProps {
 }
 
 export function MessagesPageClient({ notifications: initialNotifications, currentUser }: MessagesPageClientProps) {
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
     const [notifications, setNotifications] = useState(initialNotifications);
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
+    const [error, setError] = useState('');
 
     const filteredNotifications = notifications.filter(n =>
         filter === 'all' ? true : !n.read
@@ -39,18 +49,40 @@ export function MessagesPageClient({ notifications: initialNotifications, curren
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
-    const markAsRead = (id: string) => {
-        setNotifications(notifications.map(n =>
-            n.id === id ? { ...n, read: true } : n
-        ));
+    const markAsRead = async (id: string) => {
+        setError('');
+        startTransition(async () => {
+            const result = await markNotificationAsRead(id);
+            if (result.error) {
+                setError(result.error);
+            } else {
+                router.refresh();
+            }
+        });
     };
 
-    const markAllAsRead = () => {
-        setNotifications(notifications.map(n => ({ ...n, read: true })));
+    const markAllAsRead = async () => {
+        setError('');
+        startTransition(async () => {
+            const result = await markAllNotificationsAsRead();
+            if (result.error) {
+                setError(result.error);
+            } else {
+                router.refresh();
+            }
+        });
     };
 
-    const deleteNotification = (id: string) => {
-        setNotifications(notifications.filter(n => n.id !== id));
+    const deleteNotification = async (id: string) => {
+        setError('');
+        startTransition(async () => {
+            const result = await deleteNotificationAction(id);
+            if (result.error) {
+                setError(result.error);
+            } else {
+                router.refresh();
+            }
+        });
     };
 
     const getTypeIcon = (type: string) => {
