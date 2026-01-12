@@ -81,15 +81,20 @@ export async function updateBookingStatus(
 
     const supabase = await createClient();
 
-    // Get current booking status
+    if (!user.agency_id) {
+        return { error: 'No agency associated with user' };
+    }
+
+    // Get current booking status (with agency ownership check)
     const { data: booking, error: fetchError } = await supabase
         .from('bookings')
         .select('status')
         .eq('id', bookingId)
+        .eq('agency_id', user.agency_id)
         .single();
 
     if (fetchError || !booking) {
-        return { error: 'Booking not found' };
+        return { error: 'Booking not found or access denied' };
     }
 
     // Validate state transition
@@ -113,6 +118,7 @@ export async function updateBookingStatus(
         .from('bookings')
         .update(updateData)
         .eq('id', bookingId)
+        .eq('agency_id', user.agency_id) // Agency ownership check
         .select()
         .single();
 
@@ -151,14 +157,20 @@ export async function updateBooking(
         notes?: string;
     }
 ) {
-    await requireAuth();
+    const user = await requireAuth();
+
+    if (!user.agency_id) {
+        return { error: 'No agency associated with user' };
+    }
 
     const supabase = await createClient();
 
+    // SECURITY: Ensure booking belongs to user's agency
     const { data, error } = await supabase
         .from('bookings')
         .update(formData)
         .eq('id', bookingId)
+        .eq('agency_id', user.agency_id) // Agency ownership check
         .select()
         .single();
 
@@ -361,10 +373,15 @@ export async function createInvoice(formData: {
 }
 
 export async function issueInvoice(invoiceId: string) {
-    await requireAgencyAdmin();
+    const user = await requireAgencyAdmin();
+
+    if (!user.agency_id) {
+        return { error: 'No agency associated with user' };
+    }
 
     const supabase = await createClient();
 
+    // SECURITY: Ensure invoice belongs to user's agency
     const { data, error } = await supabase
         .from('invoices')
         .update({
@@ -372,6 +389,7 @@ export async function issueInvoice(invoiceId: string) {
             issued_at: new Date().toISOString(),
         })
         .eq('id', invoiceId)
+        .eq('agency_id', user.agency_id) // Agency ownership check
         .eq('status', 'draft') // Can only issue draft invoices
         .select()
         .single();
@@ -385,10 +403,15 @@ export async function issueInvoice(invoiceId: string) {
 }
 
 export async function markInvoicePaid(invoiceId: string) {
-    await requireAuth();
+    const user = await requireAuth();
+
+    if (!user.agency_id) {
+        return { error: 'No agency associated with user' };
+    }
 
     const supabase = await createClient();
 
+    // SECURITY: Ensure invoice belongs to user's agency
     const { data, error } = await supabase
         .from('invoices')
         .update({
@@ -396,6 +419,7 @@ export async function markInvoicePaid(invoiceId: string) {
             paid_at: new Date().toISOString(),
         })
         .eq('id', invoiceId)
+        .eq('agency_id', user.agency_id) // Agency ownership check
         .select()
         .single();
 

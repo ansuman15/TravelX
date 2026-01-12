@@ -37,7 +37,8 @@ interface Agency {
 interface Credentials {
     email: string;
     password: string;
-    message: string;
+    securityNote: string;
+    expiresIn: string;
 }
 
 interface AgenciesPageClientProps {

@@ -63,19 +63,29 @@ export async function updateLead(
         lost_reason?: string;
     }
 ) {
-    await requireAuth();
+    const user = await requireAuth();
+
+    if (!user.agency_id) {
+        return { error: 'No agency associated with user' };
+    }
 
     const supabase = await createClient();
 
+    // SECURITY: Ensure lead belongs to user's agency (prevents IDOR)
     const { data, error } = await supabase
         .from('leads')
         .update(formData)
         .eq('id', leadId)
+        .eq('agency_id', user.agency_id) // Agency ownership check
         .select()
         .single();
 
     if (error) {
         return { error: error.message };
+    }
+
+    if (!data) {
+        return { error: 'Lead not found or access denied' };
     }
 
     revalidatePath('/agency/leads');
@@ -204,19 +214,29 @@ export async function updateCustomer(
         preferences?: Record<string, unknown>;
     }
 ) {
-    await requireAuth();
+    const user = await requireAuth();
+
+    if (!user.agency_id) {
+        return { error: 'No agency associated with user' };
+    }
 
     const supabase = await createClient();
 
+    // SECURITY: Ensure customer belongs to user's agency (prevents IDOR)
     const { data, error } = await supabase
         .from('customers')
         .update(formData)
         .eq('id', customerId)
+        .eq('agency_id', user.agency_id) // Agency ownership check
         .select()
         .single();
 
     if (error) {
         return { error: error.message };
+    }
+
+    if (!data) {
+        return { error: 'Customer not found or access denied' };
     }
 
     revalidatePath('/agency/customers');

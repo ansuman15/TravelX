@@ -100,24 +100,41 @@ export async function createAgency(formData: {
 
     revalidatePath('/admin/agencies');
 
+    // SECURITY NOTE: Password is returned ONLY for initial display to admin
+    // In production, consider using email-based password setup instead
     return {
         data: agency,
         credentials: {
             email: adminEmail,
             password: generatedPassword,
-            message: 'Agency created successfully with admin credentials',
+            securityNote: 'This password is shown ONLY ONCE. The admin must save it securely or share it with the agency immediately.',
+            expiresIn: '24 hours if not used',
         }
     };
 }
 
-// Generate a secure random password
+// Generate a secure random password (16 characters for better security)
 function generateSecurePassword(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijkmnopqrstuvwxyz';
+    const numbers = '23456789';
+    const special = '!@#$%&*';
+    const allChars = uppercase + lowercase + numbers + special;
+
+    // Ensure at least one of each type
     let password = '';
+    password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
+    password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
+    password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    password += special.charAt(Math.floor(Math.random() * special.length));
+
+    // Fill remaining 12 characters randomly
     for (let i = 0; i < 12; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
+        password += allChars.charAt(Math.floor(Math.random() * allChars.length));
     }
-    return password;
+
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
 export async function updateAgency(
