@@ -111,9 +111,11 @@ const adminNavItems: NavSection[] = [
 
 interface SidebarProps {
     type: 'agency' | 'admin';
+    mobileOpen?: boolean;
+    onClose?: () => void;
 }
 
-export function Sidebar({ type }: SidebarProps) {
+export function Sidebar({ type, mobileOpen, onClose }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
 
@@ -126,8 +128,15 @@ export function Sidebar({ type }: SidebarProps) {
         return pathname.startsWith(href);
     };
 
+    // Close mobile menu on navigation
+    const handleNavClick = () => {
+        if (onClose) {
+            onClose();
+        }
+    };
+
     return (
-        <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+        <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
             {/* Logo */}
             <div className="sidebar-header">
                 <div className="sidebar-logo">
@@ -157,6 +166,7 @@ export function Sidebar({ type }: SidebarProps) {
                                     key={item.href}
                                     href={item.href}
                                     className={`sidebar-nav-item ${isActive(item.href) ? 'active' : ''}`}
+                                    onClick={handleNavClick}
                                 >
                                     <IconComponent className="sidebar-nav-icon" size={20} />
                                     {!collapsed && (

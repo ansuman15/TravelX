@@ -1,16 +1,12 @@
 import { requireAuth } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
 import { ProfilePageClient } from './page-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AgencyProfilePage() {
     const user = await requireAuth();
-
-    if (!user.agency_id && user.role !== 'super_admin') {
-        redirect('/onboarding');
-    }
+    // Note: agency_id check is handled by the layout
 
     const supabase = await createClient();
 

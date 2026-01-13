@@ -13,6 +13,8 @@ import {
     HelpCircle,
     Loader2,
     X,
+    Menu,
+    AlertTriangle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -26,12 +28,14 @@ interface TopbarProps {
         email?: string;
     };
     agencyName?: string;
+    onMenuToggle?: () => void;
 }
 
-export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
+export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: TopbarProps) {
     const router = useRouter();
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
 
     const profileRef = useRef<HTMLDivElement>(null);
@@ -52,6 +56,20 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Close logout modal on Escape key
+    useEffect(() => {
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setShowLogoutConfirm(false);
+            }
+        };
+
+        if (showLogoutConfirm) {
+            document.addEventListener('keydown', handleEscape);
+            return () => document.removeEventListener('keydown', handleEscape);
+        }
+    }, [showLogoutConfirm]);
+
     const userInitials = user?.name
         ?.split(' ')
         .map((n) => n[0])
@@ -63,7 +81,12 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
     const isAdmin = user?.role === 'super_admin';
     const basePath = isAdmin ? '/admin' : '/agency';
 
-    const handleLogout = async () => {
+    const handleLogoutClick = () => {
+        setShowProfileMenu(false);
+        setShowLogoutConfirm(true);
+    };
+
+    const handleLogoutConfirm = async () => {
         setLoggingOut(true);
         try {
             const supabase = createClient();
@@ -73,7 +96,12 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
         } catch (error) {
             console.error('Logout error:', error);
             setLoggingOut(false);
+            setShowLogoutConfirm(false);
         }
+    };
+
+    const handleLogoutCancel = () => {
+        setShowLogoutConfirm(false);
     };
 
     const handleProfileClick = () => {
@@ -89,6 +117,17 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
     return (
         <header className="topbar">
             <div className="topbar-left">
+                {/* Mobile menu button */}
+                {onMenuToggle && (
+                    <button
+                        className="mobile-menu-btn show-mobile"
+                        onClick={onMenuToggle}
+                        type="button"
+                        aria-label="Toggle menu"
+                    >
+                        <Menu size={24} />
+                    </button>
+                )}
                 <div>
                     <h1 className="topbar-title">{title}</h1>
                     {subtitle && <p className="text-sm text-secondary">{subtitle}</p>}
@@ -198,26 +237,54 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
                             <div className="dropdown-divider" />
                             <button
                                 className="dropdown-item danger"
-                                onClick={handleLogout}
+                                onClick={handleLogoutClick}
+                                type="button"
+                            >
+                                <LogOut size={16} />
+                                <span>Logout</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutConfirm && (
+                <div className="logout-modal-overlay" onClick={handleLogoutCancel}>
+                    <div className="logout-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="logout-modal-icon">
+                            <AlertTriangle size={32} />
+                        </div>
+                        <h3>Confirm Logout</h3>
+                        <p>Are you sure you want to logout? You will need to login again to access your account.</p>
+                        <div className="logout-modal-actions">
+                            <button
+                                className="btn btn-secondary"
+                                onClick={handleLogoutCancel}
+                                disabled={loggingOut}
+                                type="button"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-danger"
+                                onClick={handleLogoutConfirm}
                                 disabled={loggingOut}
                                 type="button"
                             >
                                 {loggingOut ? (
                                     <>
                                         <Loader2 size={16} className="spin" />
-                                        <span>Logging out...</span>
+                                        Logging out...
                                     </>
                                 ) : (
-                                    <>
-                                        <LogOut size={16} />
-                                        <span>Logout</span>
-                                    </>
+                                    'Yes, Logout'
                                 )}
                             </button>
                         </div>
-                    )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <style jsx>{`
                 .topbar {
@@ -447,6 +514,104 @@ export function Topbar({ title, subtitle, user, agencyName }: TopbarProps) {
                 @keyframes spin {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
+                }
+                .logout-modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                    animation: fadeIn 0.2s ease;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .logout-modal {
+                    background: white;
+                    border-radius: 16px;
+                    padding: 32px;
+                    max-width: 400px;
+                    width: 90%;
+                    text-align: center;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+                    animation: slideUp 0.2s ease;
+                }
+                @keyframes slideUp {
+                    from { 
+                        opacity: 0;
+                        transform: translateY(20px);
+                    }
+                    to { 
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                .logout-modal-icon {
+                    width: 64px;
+                    height: 64px;
+                    background: var(--warning-100);
+                    color: var(--warning-600);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 20px;
+                }
+                .logout-modal h3 {
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    margin: 0 0 8px;
+                }
+                .logout-modal p {
+                    font-size: 14px;
+                    color: var(--text-secondary);
+                    margin: 0 0 24px;
+                    line-height: 1.5;
+                }
+                .logout-modal-actions {
+                    display: flex;
+                    gap: 12px;
+                    justify-content: center;
+                }
+                .logout-modal-actions .btn {
+                    flex: 1;
+                    max-width: 140px;
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    transition: all 0.2s ease;
+                }
+                .logout-modal-actions .btn-secondary {
+                    background: var(--bg-secondary);
+                    color: var(--text-primary);
+                }
+                .logout-modal-actions .btn-secondary:hover {
+                    background: var(--border-light);
+                }
+                .logout-modal-actions .btn-danger {
+                    background: var(--error-500);
+                    color: white;
+                }
+                .logout-modal-actions .btn-danger:hover {
+                    background: var(--error-600);
+                }
+                .logout-modal-actions .btn:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
                 }
             `}</style>
         </header>

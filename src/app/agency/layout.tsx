@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { requireAuth } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 import { AgencyLayoutClient } from './layout-client';
 
 // Force dynamic rendering - this layout requires authentication
@@ -12,6 +13,11 @@ interface AgencyLayoutProps {
 
 export default async function AgencyLayout({ children }: AgencyLayoutProps) {
     const user = await requireAuth();
+
+    // Redirect to onboarding if no agency assigned
+    if (!user.agency_id) {
+        redirect('/onboarding');
+    }
 
     // Get agency details
     const supabase = await createClient();

@@ -70,7 +70,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    // Role-based route protection
+    // Role-based route protection for admin routes
     if (user && pathname.startsWith('/admin')) {
         const { data: userData } = await supabase
             .from('users')
@@ -81,6 +81,29 @@ export async function middleware(request: NextRequest) {
         if (userData?.role !== 'super_admin') {
             const url = request.nextUrl.clone();
             url.pathname = '/agency';
+            return NextResponse.redirect(url);
+        }
+    }
+
+    // Agency route protection - require agency_id
+    if (user && pathname.startsWith('/agency')) {
+        const { data: userData } = await supabase
+            .from('users')
+            .select('agency_id, role')
+            .eq('id', user.id)
+            .single();
+
+        // Super admins shouldn't access agency routes directly
+        if (userData?.role === 'super_admin') {
+            const url = request.nextUrl.clone();
+            url.pathname = '/admin';
+            return NextResponse.redirect(url);
+        }
+
+        // Users without agency_id should go to onboarding
+        if (!userData?.agency_id) {
+            const url = request.nextUrl.clone();
+            url.pathname = '/onboarding';
             return NextResponse.redirect(url);
         }
     }

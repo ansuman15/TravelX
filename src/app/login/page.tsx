@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -16,6 +16,35 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Handle error query params from auth redirects
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+
+    if (errorParam) {
+      let message = 'An authentication error occurred.';
+
+      if (errorParam === 'access_denied') {
+        message = 'Access denied. Please try again.';
+      } else if (errorParam === 'otp_expired' || errorDescription?.includes('expired')) {
+        message = 'The email link has expired. Please request a new one.';
+      } else if (errorParam === 'auth_error') {
+        message = 'Authentication failed. Please try again.';
+      } else if (errorDescription) {
+        message = errorDescription.replace(/\+/g, ' ');
+      }
+
+      setError(message);
+
+      // Clear the error params from URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      url.searchParams.delete('error_description');
+      url.searchParams.delete('error_code');
+      window.history.replaceState(null, '', url.toString());
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

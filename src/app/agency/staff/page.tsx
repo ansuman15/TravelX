@@ -1,16 +1,12 @@
 import { requireAuth } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
 import { StaffPageClient } from './page-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AgencyStaffPage() {
     const user = await requireAuth();
-
-    if (!user.agency_id) {
-        redirect('/onboarding');
-    }
+    // Note: agency_id check is handled by the layout
 
     const supabase = await createClient();
 

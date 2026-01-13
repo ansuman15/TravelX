@@ -16,6 +16,33 @@ function ResetPasswordForm() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [isReady, setIsReady] = useState(false);
+
+    // Handle auth state change when user lands from email link
+    useEffect(() => {
+        const supabase = createClient();
+
+        // Check if we have a valid session or if auth state changes
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                setIsReady(true);
+            }
+        };
+
+        checkSession();
+
+        // Listen for auth state changes (for when session is established from hash fragment)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+                setIsReady(true);
+            }
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -94,70 +121,79 @@ function ResetPasswordForm() {
                 <p>Enter your new password below</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="login-form">
-                {error && (
-                    <div className="login-error">
-                        {error}
-                    </div>
-                )}
+            {!isReady && (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                    <Loader2 className="spin" size={32} style={{ margin: '0 auto 16px' }} />
+                    <p className="text-secondary">Verifying your reset link...</p>
+                </div>
+            )}
 
-                <div className="form-group">
-                    <label htmlFor="password" className="form-label">
-                        New Password
-                    </label>
-                    <div className="password-input-wrapper">
+            {isReady && (
+                <form onSubmit={handleSubmit} className="login-form">
+                    {error && (
+                        <div className="login-error">
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="form-group">
+                        <label htmlFor="password" className="form-label">
+                            New Password
+                        </label>
+                        <div className="password-input-wrapper">
+                            <input
+                                id="password"
+                                type={showPassword ? 'text' : 'password'}
+                                className="form-input"
+                                placeholder="At least 6 characters"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                disabled={loading}
+                                minLength={6}
+                            />
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label htmlFor="confirmPassword" className="form-label">
+                            Confirm New Password
+                        </label>
                         <input
-                            id="password"
-                            type={showPassword ? 'text' : 'password'}
+                            id="confirmPassword"
+                            type="password"
                             className="form-input"
-                            placeholder="At least 6 characters"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Confirm your password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
                             required
                             disabled={loading}
-                            minLength={6}
                         />
-                        <button
-                            type="button"
-                            className="password-toggle"
-                            onClick={() => setShowPassword(!showPassword)}
-                        >
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
                     </div>
-                </div>
 
-                <div className="form-group">
-                    <label htmlFor="confirmPassword" className="form-label">
-                        Confirm New Password
-                    </label>
-                    <input
-                        id="confirmPassword"
-                        type="password"
-                        className="form-input"
-                        placeholder="Confirm your password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
+                    <button
+                        type="submit"
+                        className="btn btn-primary login-submit"
                         disabled={loading}
-                    />
-                </div>
-
-                <button
-                    type="submit"
-                    className="btn btn-primary login-submit"
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <>
-                            <Loader2 className="spin" size={18} />
-                            Updating...
-                        </>
-                    ) : (
-                        'Update Password'
-                    )}
-                </button>
-            </form>
+                    >
+                        {loading ? (
+                            <>
+                                <Loader2 className="spin" size={18} />
+                                Updating...
+                            </>
+                        ) : (
+                            'Update Password'
+                        )}
+                    </button>
+                </form>
+            )}
 
             <div className="login-footer">
                 <p>

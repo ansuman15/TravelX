@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
@@ -25,15 +25,31 @@ export function DashboardLayout({
     user,
     agencyName,
 }: DashboardLayoutProps) {
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
+    const closeMobileMenu = () => setMobileMenuOpen(false);
+
     return (
         <div className="dashboard-layout">
-            <Sidebar type={type} />
+            {/* Mobile overlay backdrop */}
+            <div
+                className={`sidebar-overlay ${mobileMenuOpen ? 'visible' : ''}`}
+                onClick={closeMobileMenu}
+            />
+
+            <Sidebar
+                type={type}
+                mobileOpen={mobileMenuOpen}
+                onClose={closeMobileMenu}
+            />
             <main className="main-content">
                 <Topbar
                     title={title}
                     subtitle={subtitle}
                     user={user}
                     agencyName={agencyName}
+                    onMenuToggle={toggleMobileMenu}
                 />
                 <div className="page-content">
                     {children}
