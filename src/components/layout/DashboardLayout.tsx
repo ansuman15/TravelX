@@ -13,6 +13,7 @@ interface DashboardLayoutProps {
         name: string;
         role: string;
         avatar?: string;
+        email?: string;
     };
     agencyName?: string;
 }
