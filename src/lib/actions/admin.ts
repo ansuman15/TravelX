@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
@@ -27,6 +27,7 @@ export async function createAgency(formData: {
     }
 
     const supabase = await createClient();
+    const adminSupabase = await createAdminClient();
 
     // Generate a unique slug from the agency name
     const baseSlug = formData.name
@@ -61,16 +62,13 @@ export async function createAgency(formData: {
         return { error: agencyError.message };
     }
 
-    // Step 2: Create admin user in Supabase Auth
-    // Note: This requires service role key which has admin.createUser permission
-    // For now, we'll create the user record and they can use password reset
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Step 2: Create admin user using Admin API (doesn't affect current session)
+    const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
         email: adminEmail,
         password: generatedPassword,
-        options: {
-            data: {
-                full_name: formData.adminName || `${formData.name} Admin`,
-            },
+        email_confirm: true, // Auto-confirm email
+        user_metadata: {
+            full_name: formData.adminName || `${formData.name} Admin`,
         },
     });
 
