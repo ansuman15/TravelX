@@ -45,13 +45,14 @@ export async function createPackage(input: CreatePackageInput) {
 }
 
 export async function updatePackage(packageId: string, input: Partial<CreatePackageInput>) {
-    await requireAuth();
+    const user = await requireAuth();
     const supabase = await createClient();
 
     const { data, error } = await supabase
         .from('packages')
         .update(input)
         .eq('id', packageId)
+        .eq('agency_id', user.agency_id) // Defensive: ensure agency ownership
         .select()
         .single();
 
@@ -64,13 +65,14 @@ export async function updatePackage(packageId: string, input: Partial<CreatePack
 }
 
 export async function deletePackage(packageId: string) {
-    await requireAgencyAdmin();
+    const user = await requireAgencyAdmin();
     const supabase = await createClient();
 
     const { error } = await supabase
         .from('packages')
         .delete()
-        .eq('id', packageId);
+        .eq('id', packageId)
+        .eq('agency_id', user.agency_id); // Defensive: ensure agency ownership
 
     if (error) {
         return { error: error.message };
@@ -81,13 +83,14 @@ export async function deletePackage(packageId: string) {
 }
 
 export async function togglePackageStatus(packageId: string, isActive: boolean) {
-    await requireAuth();
+    const user = await requireAuth();
     const supabase = await createClient();
 
     const { data, error } = await supabase
         .from('packages')
         .update({ is_active: isActive })
         .eq('id', packageId)
+        .eq('agency_id', user.agency_id) // Defensive: ensure agency ownership
         .select()
         .single();
 
@@ -136,13 +139,14 @@ export async function createItinerary(input: CreateItineraryInput) {
 }
 
 export async function updateItinerary(itineraryId: string, input: Partial<CreateItineraryInput>) {
-    await requireAuth();
+    const user = await requireAuth();
     const supabase = await createClient();
 
     const { data, error } = await supabase
         .from('itineraries')
         .update(input)
         .eq('id', itineraryId)
+        .eq('agency_id', user.agency_id) // Defensive: ensure agency ownership
         .select()
         .single();
 
