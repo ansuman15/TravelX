@@ -10,6 +10,8 @@ import {
     Building,
     Power,
     PowerOff,
+    CheckCircle,
+    Clock,
 } from 'lucide-react';
 import { Badge, Button, Select } from '@/components/ui';
 import { updatePlatformUser } from '@/lib/actions/admin';
@@ -56,7 +58,8 @@ export function UsersPageClient({ users }: UsersPageClientProps) {
         const matchesRole = roleFilter === 'all' || user.role === roleFilter;
         const matchesStatus = statusFilter === 'all' ||
             (statusFilter === 'active' && user.is_active) ||
-            (statusFilter === 'inactive' && !user.is_active);
+            (statusFilter === 'inactive' && !user.is_active) ||
+            (statusFilter === 'pending' && !user.is_active && user.role !== 'super_admin');
 
         return matchesSearch && matchesRole && matchesStatus;
     });
@@ -96,6 +99,15 @@ export function UsersPageClient({ users }: UsersPageClientProps) {
     const superAdmins = users.filter(u => u.role === 'super_admin').length;
     const agencyAdmins = users.filter(u => u.role === 'agency_admin').length;
     const activeUsers = users.filter(u => u.is_active).length;
+    const pendingUsers = users.filter(u => !u.is_active && u.role !== 'super_admin').length;
+
+    // Handle approve user
+    const handleApprove = async (user: UserType) => {
+        const result = await updatePlatformUser(user.id, { is_active: true });
+        if (result.data) {
+            router.refresh();
+        }
+    };
 
     return (
         <div className="page-content">
@@ -133,7 +145,26 @@ export function UsersPageClient({ users }: UsersPageClientProps) {
                         <div className="text-sm text-secondary">Active Users</div>
                     </div>
                 </div>
+                <div className="card" style={{ borderLeft: pendingUsers > 0 ? '3px solid var(--warning-500)' : undefined }}>
+                    <div className="card-body" style={{ padding: 'var(--spacing-4)' }}>
+                        <div className="text-2xl font-bold text-warning-600">{pendingUsers}</div>
+                        <div className="text-sm text-secondary">Pending Approval</div>
+                    </div>
+                </div>
             </div>
+
+            {/* Pending Approvals Alert */}
+            {pendingUsers > 0 && (
+                <div className="pending-alert mb-6">
+                    <div className="flex items-center gap-3">
+                        <Clock size={20} className="text-warning-600" />
+                        <div>
+                            <div className="font-semibold">{pendingUsers} user{pendingUsers > 1 ? 's' : ''} awaiting approval</div>
+                            <div className="text-sm text-secondary">New agency signups require your approval before they can access the platform.</div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="card mb-6">
@@ -165,9 +196,10 @@ export function UsersPageClient({ users }: UsersPageClientProps) {
                         <Select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            style={{ width: '150px' }}
+                            style={{ width: '180px' }}
                         >
                             <option value="all">All Status</option>
+                            <option value="pending">⏳ Pending Approval</option>
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
                         </Select>
@@ -230,15 +262,27 @@ export function UsersPageClient({ users }: UsersPageClientProps) {
                                             {formatDate(user.created_at)}
                                         </td>
                                         <td>
-                                            <div className="flex gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleToggleStatus(user)}
-                                                    title={user.is_active ? 'Deactivate' : 'Activate'}
-                                                >
-                                                    {user.is_active ? <PowerOff size={14} /> : <Power size={14} />}
-                                                </Button>
+                                            <div className="flex gap-2">
+                                                {!user.is_active && user.role !== 'super_admin' ? (
+                                                    <Button
+                                                        variant="primary"
+                                                        size="sm"
+                                                        onClick={() => handleApprove(user)}
+                                                        title="Approve User"
+                                                    >
+                                                        <CheckCircle size={14} />
+                                                        Approve
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleToggleStatus(user)}
+                                                        title={user.is_active ? 'Deactivate' : 'Activate'}
+                                                    >
+                                                        {user.is_active ? <PowerOff size={14} /> : <Power size={14} />}
+                                                    </Button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -259,6 +303,12 @@ export function UsersPageClient({ users }: UsersPageClientProps) {
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                }
+                .pending-alert {
+                    background: var(--warning-50);
+                    border: 1px solid var(--warning-200);
+                    border-radius: var(--radius-lg);
+                    padding: var(--spacing-4);
                 }
             `}</style>
         </div>

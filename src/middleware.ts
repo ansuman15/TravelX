@@ -37,7 +37,7 @@ export async function middleware(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
 
     // Public routes that don't require authentication
-    const publicRoutes = ['/login', '/signup', '/verify-email', '/forgot-password', '/reset-password', '/auth/callback', '/api/leads/intake'];
+    const publicRoutes = ['/login', '/signup', '/verify-email', '/forgot-password', '/reset-password', '/auth/callback', '/api/leads/intake', '/pending-approval'];
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
     // If no user and trying to access protected route, redirect to login
@@ -46,6 +46,22 @@ export async function middleware(request: NextRequest) {
         url.pathname = '/login';
         url.searchParams.set('redirect', pathname);
         return NextResponse.redirect(url);
+    }
+
+    // Check if user is inactive (pending approval) - redirect to pending-approval page
+    if (user && !isPublicRoute) {
+        const { data: userData } = await supabase
+            .from('users')
+            .select('is_active, role')
+            .eq('id', user.id)
+            .single();
+
+        // If user is inactive and not super_admin, redirect to pending-approval
+        if (userData && !userData.is_active && userData.role !== 'super_admin') {
+            const url = request.nextUrl.clone();
+            url.pathname = '/pending-approval';
+            return NextResponse.redirect(url);
+        }
     }
 
     // If user exists and trying to access login/signup, redirect to appropriate dashboard

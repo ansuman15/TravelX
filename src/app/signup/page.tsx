@@ -65,15 +65,23 @@ function SignupForm() {
             }
 
             if (data.user) {
-                // Check if email confirmation is required
-                // If session exists immediately, email confirmation is disabled
-                if (data.session) {
-                    // No email verification needed - redirect to onboarding
-                    router.push('/onboarding');
-                } else {
-                    // Email confirmation required - show verification message
-                    setStep('verify');
+                // Create user record with is_active = false (pending approval)
+                const { error: insertError } = await supabase
+                    .from('users')
+                    .insert({
+                        id: data.user.id,
+                        email: email,
+                        full_name: fullName,
+                        role: 'agency_admin',
+                        is_active: false, // Requires admin approval
+                    });
+
+                if (insertError) {
+                    console.error('Error creating user record:', insertError);
                 }
+
+                // Redirect to pending approval page
+                router.push('/pending-approval');
             }
         } catch (err) {
             console.error('Signup error:', err);
