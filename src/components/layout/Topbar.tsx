@@ -37,6 +37,8 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
     const [showNotifications, setShowNotifications] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
+    const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
+    const [confirmText, setConfirmText] = useState('');
 
     const profileRef = useRef<HTMLDivElement>(null);
     const notificationRef = useRef<HTMLDivElement>(null);
@@ -83,10 +85,18 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
 
     const handleLogoutClick = () => {
         setShowProfileMenu(false);
+        setConfirmStep(1);
+        setConfirmText('');
         setShowLogoutConfirm(true);
     };
 
+    const handleLogoutProceed = () => {
+        setConfirmStep(2);
+    };
+
     const handleLogoutConfirm = async () => {
+        if (confirmText.toLowerCase() !== 'logout') return;
+
         setLoggingOut(true);
         try {
             const supabase = createClient();
@@ -97,11 +107,15 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
             console.error('Logout error:', error);
             setLoggingOut(false);
             setShowLogoutConfirm(false);
+            setConfirmStep(1);
+            setConfirmText('');
         }
     };
 
     const handleLogoutCancel = () => {
         setShowLogoutConfirm(false);
+        setConfirmStep(1);
+        setConfirmText('');
     };
 
     const handleProfileClick = () => {
@@ -248,40 +262,91 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
                 </div>
             </div>
 
-            {/* Logout Confirmation Modal */}
+            {/* Logout Confirmation Modal - Double Confirmation */}
             {showLogoutConfirm && (
                 <div className="logout-modal-overlay" onClick={handleLogoutCancel}>
                     <div className="logout-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="logout-modal-icon">
-                            <AlertTriangle size={32} />
+                        {/* Step Indicator */}
+                        <div className="logout-step-indicator">
+                            <div className={`step-dot ${confirmStep >= 1 ? 'active' : ''}`} />
+                            <div className="step-line" />
+                            <div className={`step-dot ${confirmStep >= 2 ? 'active' : ''}`} />
                         </div>
-                        <h3>Confirm Logout</h3>
-                        <p>Are you sure you want to logout? You will need to login again to access your account.</p>
-                        <div className="logout-modal-actions">
-                            <button
-                                className="btn btn-secondary"
-                                onClick={handleLogoutCancel}
-                                disabled={loggingOut}
-                                type="button"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="btn btn-danger"
-                                onClick={handleLogoutConfirm}
-                                disabled={loggingOut}
-                                type="button"
-                            >
-                                {loggingOut ? (
-                                    <>
-                                        <Loader2 size={16} className="spin" />
-                                        Logging out...
-                                    </>
-                                ) : (
-                                    'Yes, Logout'
-                                )}
-                            </button>
-                        </div>
+
+                        {confirmStep === 1 ? (
+                            <>
+                                {/* Step 1: Initial Warning */}
+                                <div className="logout-modal-icon warning">
+                                    <AlertTriangle size={32} />
+                                </div>
+                                <h3>Are you sure?</h3>
+                                <p>You are about to sign out of your account. You will need to login again to access your dashboard.</p>
+                                <div className="logout-modal-actions">
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={handleLogoutCancel}
+                                        type="button"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="btn btn-warning"
+                                        onClick={handleLogoutProceed}
+                                        type="button"
+                                    >
+                                        Continue
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {/* Step 2: Final Confirmation with Type-to-Confirm */}
+                                <div className="logout-modal-icon danger">
+                                    <LogOut size={32} />
+                                </div>
+                                <h3>Final Confirmation</h3>
+                                <p>To confirm logout, please type <strong>LOGOUT</strong> below:</p>
+                                <div className="confirm-input-wrapper">
+                                    <input
+                                        type="text"
+                                        className="confirm-input"
+                                        placeholder="Type LOGOUT to confirm"
+                                        value={confirmText}
+                                        onChange={(e) => setConfirmText(e.target.value)}
+                                        autoFocus
+                                        disabled={loggingOut}
+                                    />
+                                    {confirmText.toLowerCase() === 'logout' && (
+                                        <span className="confirm-check">✓</span>
+                                    )}
+                                </div>
+                                <div className="logout-modal-actions">
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={handleLogoutCancel}
+                                        disabled={loggingOut}
+                                        type="button"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="btn btn-danger"
+                                        onClick={handleLogoutConfirm}
+                                        disabled={loggingOut || confirmText.toLowerCase() !== 'logout'}
+                                        type="button"
+                                    >
+                                        {loggingOut ? (
+                                            <>
+                                                <Loader2 size={16} className="spin" />
+                                                Signing out...
+                                            </>
+                                        ) : (
+                                            'Yes, Sign Out'
+                                        )}
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
@@ -612,6 +677,81 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
                 .logout-modal-actions .btn:disabled {
                     opacity: 0.6;
                     cursor: not-allowed;
+                }
+                .logout-modal-actions .btn-warning {
+                    background: var(--warning-500, #f59e0b);
+                    color: white;
+                }
+                .logout-modal-actions .btn-warning:hover {
+                    background: var(--warning-600, #d97706);
+                }
+                .logout-step-indicator {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    margin-bottom: 24px;
+                }
+                .step-dot {
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 50%;
+                    background: var(--border-light);
+                    transition: all 0.3s ease;
+                }
+                .step-dot.active {
+                    background: var(--primary-500);
+                    box-shadow: 0 0 0 4px var(--primary-100);
+                }
+                .step-line {
+                    width: 40px;
+                    height: 2px;
+                    background: var(--border-light);
+                }
+                .logout-modal-icon.warning {
+                    background: var(--warning-100, #fef3c7);
+                    color: var(--warning-600, #d97706);
+                }
+                .logout-modal-icon.danger {
+                    background: var(--error-100, #fee2e2);
+                    color: var(--error-600, #dc2626);
+                }
+                .confirm-input-wrapper {
+                    position: relative;
+                    margin-bottom: 24px;
+                }
+                .confirm-input {
+                    width: 100%;
+                    padding: 12px 40px 12px 16px;
+                    border: 2px solid var(--border-light);
+                    border-radius: 8px;
+                    font-size: 14px;
+                    text-align: center;
+                    letter-spacing: 1px;
+                    transition: all 0.2s ease;
+                }
+                .confirm-input:focus {
+                    outline: none;
+                    border-color: var(--primary-500);
+                    box-shadow: 0 0 0 3px var(--primary-100);
+                }
+                .confirm-input:disabled {
+                    background: var(--bg-secondary);
+                    cursor: not-allowed;
+                }
+                .confirm-check {
+                    position: absolute;
+                    right: 12px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    color: var(--success-500, #22c55e);
+                    font-size: 18px;
+                    font-weight: bold;
+                    animation: checkPop 0.2s ease;
+                }
+                @keyframes checkPop {
+                    from { transform: translateY(-50%) scale(0); }
+                    to { transform: translateY(-50%) scale(1); }
                 }
             `}</style>
         </header>
