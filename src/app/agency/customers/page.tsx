@@ -5,16 +5,17 @@ import { CustomersPageClient } from './page-client';
 export const dynamic = 'force-dynamic';
 
 export default async function CustomersPage() {
-    await requireAuth();
+    const user = await requireAuth();
     const supabase = await createClient();
 
-    // Fetch customers with booking count
+    // SECURITY: Only fetch customers for the user's agency
     const { data: customers, error } = await supabase
         .from('customers')
         .select(`
       *,
       bookings:bookings(count)
     `)
+        .eq('agency_id', user.agency_id)
         .order('created_at', { ascending: false });
 
     if (error) {

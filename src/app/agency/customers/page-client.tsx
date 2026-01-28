@@ -53,6 +53,7 @@ export function CustomersPageClient({ initialCustomers }: CustomersPageClientPro
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -106,10 +107,19 @@ export function CustomersPageClient({ initialCustomers }: CustomersPageClientPro
 
     const handleCreateCustomer = async () => {
         setLoading(true);
+        setError(null);
+
         const result = await createCustomer({
             ...formData,
             gender: formData.gender as 'male' | 'female' | 'other' | undefined,
         });
+
+        if (result.error) {
+            setError(result.error);
+            alert(`Failed to create customer: ${result.error}`);
+            setLoading(false);
+            return;
+        }
 
         if (result.data) {
             setShowCreateModal(false);

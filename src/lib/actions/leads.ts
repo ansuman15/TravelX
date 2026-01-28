@@ -180,6 +180,11 @@ export async function createCustomer(formData: {
 }) {
     const user = await requireAuth();
 
+    // SECURITY: Ensure user has an agency_id
+    if (!user.agency_id) {
+        return { error: 'No agency associated with your account. Please contact support.' };
+    }
+
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -193,6 +198,7 @@ export async function createCustomer(formData: {
         .single();
 
     if (error) {
+        console.error('Error creating customer:', error);
         return { error: error.message };
     }
 
