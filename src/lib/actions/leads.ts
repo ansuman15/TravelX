@@ -187,12 +187,31 @@ export async function createCustomer(formData: {
 
     const supabase = await createClient();
 
+    // Clean up empty strings to null for optional fields (especially dates)
+    const cleanedData = {
+        full_name: formData.full_name,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        alternate_phone: formData.alternate_phone || null,
+        passport_number: formData.passport_number || null,
+        passport_expiry: formData.passport_expiry || null,
+        date_of_birth: formData.date_of_birth || null,
+        nationality: formData.nationality || null,
+        gender: formData.gender || null,
+        address: formData.address || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        country: formData.country || null,
+        pincode: formData.pincode || null,
+        notes: formData.notes || null,
+    };
+
     const { data, error } = await supabase
         .from('customers')
         .insert({
             agency_id: user.agency_id,
             created_by: user.id,
-            ...formData,
+            ...cleanedData,
         })
         .select()
         .single();
