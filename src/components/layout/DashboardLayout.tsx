@@ -16,6 +16,11 @@ interface DashboardLayoutProps {
         email?: string;
     };
     agencyName?: string;
+    badgeCounts?: {
+        leads?: number;
+        tasks?: number;
+        messages?: number;
+    };
 }
 
 export function DashboardLayout({
@@ -25,6 +30,7 @@ export function DashboardLayout({
     subtitle,
     user,
     agencyName,
+    badgeCounts,
 }: DashboardLayoutProps) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -43,6 +49,7 @@ export function DashboardLayout({
                 type={type}
                 mobileOpen={mobileMenuOpen}
                 onClose={closeMobileMenu}
+                badgeCounts={badgeCounts}
             />
             <main className="main-content">
                 <Topbar

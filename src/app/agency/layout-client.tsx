@@ -12,9 +12,14 @@ interface AgencyLayoutClientProps {
         email: string;
     };
     agencyName: string;
+    badgeCounts?: {
+        leads?: number;
+        tasks?: number;
+        messages?: number;
+    };
 }
 
-export function AgencyLayoutClient({ children, user, agencyName }: AgencyLayoutClientProps) {
+export function AgencyLayoutClient({ children, user, agencyName, badgeCounts }: AgencyLayoutClientProps) {
     const router = useRouter();
 
     // Handle auth error hash fragments (e.g., from expired email links)
@@ -38,6 +43,7 @@ export function AgencyLayoutClient({ children, user, agencyName }: AgencyLayoutC
             title="Dashboard"
             user={user}
             agencyName={agencyName}
+            badgeCounts={badgeCounts}
         >
             {children}
         </DashboardLayout>

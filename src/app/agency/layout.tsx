@@ -27,6 +27,13 @@ export default async function AgencyLayout({ children }: AgencyLayoutProps) {
         .eq('id', user.agency_id)
         .single();
 
+    // Get counts for sidebar badges
+    const { count: newLeadsCount } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('agency_id', user.agency_id)
+        .eq('status', 'new');
+
     return (
         <AgencyLayoutClient
             user={{
@@ -35,6 +42,9 @@ export default async function AgencyLayout({ children }: AgencyLayoutProps) {
                 email: user.email,
             }}
             agencyName={agency?.name || 'TravelX Agency'}
+            badgeCounts={{
+                leads: newLeadsCount || 0,
+            }}
         >
             {children}
         </AgencyLayoutClient>

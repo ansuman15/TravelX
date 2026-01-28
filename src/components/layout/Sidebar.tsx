@@ -47,7 +47,7 @@ const agencyNavItems: NavSection[] = [
         section: 'Main',
         items: [
             { href: '/agency', label: 'Dashboard', icon: LayoutDashboard },
-            { href: '/agency/leads', label: 'Leads & Enquiries', icon: UserPlus, badge: 12 },
+            { href: '/agency/leads', label: 'Leads & Enquiries', icon: UserPlus },
             { href: '/agency/customers', label: 'Customers', icon: Users },
         ],
     },
@@ -72,7 +72,7 @@ const agencyNavItems: NavSection[] = [
         items: [
             { href: '/agency/documents', label: 'Documents', icon: FileText },
             { href: '/agency/suppliers', label: 'Suppliers', icon: Truck },
-            { href: '/agency/tasks', label: 'Tasks', icon: CheckSquare, badge: 5 },
+            { href: '/agency/tasks', label: 'Tasks', icon: CheckSquare },
         ],
     },
     {
@@ -80,7 +80,7 @@ const agencyNavItems: NavSection[] = [
         items: [
             { href: '/agency/reports', label: 'Reports', icon: BarChart3 },
             { href: '/agency/staff', label: 'Staff', icon: UserCog },
-            { href: '/agency/messages', label: 'Messages', icon: MessageSquare, badge: 3 },
+            { href: '/agency/messages', label: 'Messages', icon: MessageSquare },
             { href: '/agency/settings', label: 'Settings', icon: Settings },
         ],
     },
@@ -117,9 +117,14 @@ interface SidebarProps {
     type: 'agency' | 'admin';
     mobileOpen?: boolean;
     onClose?: () => void;
+    badgeCounts?: {
+        leads?: number;
+        tasks?: number;
+        messages?: number;
+    };
 }
 
-export function Sidebar({ type, mobileOpen, onClose }: SidebarProps) {
+export function Sidebar({ type, mobileOpen, onClose, badgeCounts }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
@@ -130,7 +135,33 @@ export function Sidebar({ type, mobileOpen, onClose }: SidebarProps) {
     const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
     const [confirmText, setConfirmText] = useState('');
 
-    const navItems = type === 'admin' ? adminNavItems : agencyNavItems;
+    // Compute dynamic nav items with real badge counts
+    const getNavItems = () => {
+        const items = type === 'admin' ? adminNavItems : agencyNavItems;
+
+        if (type === 'agency' && badgeCounts) {
+            // Update agency nav items with real counts
+            return items.map(section => ({
+                ...section,
+                items: section.items.map(item => {
+                    if (item.href === '/agency/leads') {
+                        return { ...item, badge: badgeCounts.leads || undefined };
+                    }
+                    if (item.href === '/agency/tasks') {
+                        return { ...item, badge: badgeCounts.tasks || undefined };
+                    }
+                    if (item.href === '/agency/messages') {
+                        return { ...item, badge: badgeCounts.messages || undefined };
+                    }
+                    return item;
+                })
+            }));
+        }
+
+        return items;
+    };
+
+    const navItems = getNavItems();
 
     const isActive = (href: string) => {
         if (href === '/agency' || href === '/admin') {
