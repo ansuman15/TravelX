@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -15,8 +15,16 @@ import {
     X,
     Menu,
     AlertTriangle,
+    Users,
+    Briefcase,
+    FileText,
+    BookOpen,
+    MessageCircle,
+    Mail,
+    Phone,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { getNotificationsWithFallback, globalSearch, markAllNotificationsAsRead } from '@/lib/actions/notifications';
 
 interface TopbarProps {
     title: string;
@@ -40,8 +48,18 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
     const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
     const [confirmText, setConfirmText] = useState('');
 
+    // New state for notifications, search, help
+    const [notifications, setNotifications] = useState<Array<{ id: string; title: string; message: string; type: string; read: boolean; created_at: string }>>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<Array<{ id: string; title: string; subtitle: string; type: string; href: string }>>([]);
+    const [showSearchResults, setShowSearchResults] = useState(false);
+    const [showHelpModal, setShowHelpModal] = useState(false);
+    const [searchLoading, setSearchLoading] = useState(false);
+
     const profileRef = useRef<HTMLDivElement>(null);
     const notificationRef = useRef<HTMLDivElement>(null);
+    const searchRef = useRef<HTMLDivElement>(null);
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -52,25 +70,67 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
             if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
                 setShowNotifications(false);
             }
+            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+                setShowSearchResults(false);
+            }
         };
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Fetch notifications on mount
+    useEffect(() => {
+        async function fetchNotifications() {
+            try {
+                const result = await getNotificationsWithFallback(8);
+                setNotifications(result.data);
+                setUnreadCount(result.unreadCount);
+            } catch (error) {
+                console.error('Failed to fetch notifications:', error);
+            }
+        }
+        fetchNotifications();
+    }, []);
+
+    // Debounced search
+    useEffect(() => {
+        if (!searchQuery || searchQuery.length < 2) {
+            setSearchResults([]);
+            setShowSearchResults(false);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            setSearchLoading(true);
+            try {
+                const result = await globalSearch(searchQuery);
+                setSearchResults(result.results);
+                setShowSearchResults(true);
+            } catch (error) {
+                console.error('Search failed:', error);
+            } finally {
+                setSearchLoading(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
     // Close logout modal on Escape key
     useEffect(() => {
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setShowLogoutConfirm(false);
+                setShowHelpModal(false);
             }
         };
 
-        if (showLogoutConfirm) {
+        if (showLogoutConfirm || showHelpModal) {
             document.addEventListener('keydown', handleEscape);
             return () => document.removeEventListener('keydown', handleEscape);
         }
-    }, [showLogoutConfirm]);
+    }, [showLogoutConfirm, showHelpModal]);
 
     const userInitials = user?.name
         ?.split(' ')
@@ -78,6 +138,22 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
         .join('')
         .toUpperCase()
         .slice(0, 2) || 'U';
+
+    // Format relative time
+    const formatTimeAgo = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = now.getTime() - date.getTime();
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes} min ago`;
+        if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+        return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    };
 
     // Determine if this is admin or agency context
     const isAdmin = user?.role === 'super_admin';
@@ -149,18 +225,64 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
             </div>
 
             <div className="topbar-right">
-                {/* Search */}
-                <div className="topbar-search">
+                {/* Search with results dropdown */}
+                <div className="topbar-search" ref={searchRef} style={{ position: 'relative' }}>
                     <Search className="topbar-search-icon" size={18} />
                     <input
                         type="text"
                         className="topbar-search-input"
-                        placeholder="Search anything..."
+                        placeholder="Search customers, bookings, leads..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
                     />
+                    {searchLoading && (
+                        <Loader2 size={16} className="topbar-search-loading" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite' }} />
+                    )}
+
+                    {showSearchResults && searchResults.length > 0 && (
+                        <div className="dropdown-menu" style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px', maxHeight: '400px', overflowY: 'auto' }}>
+                            {searchResults.map((result) => (
+                                <Link
+                                    key={result.id}
+                                    href={result.href}
+                                    className="dropdown-item"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px' }}
+                                    onClick={() => { setShowSearchResults(false); setSearchQuery(''); }}
+                                >
+                                    <div style={{
+                                        width: '32px', height: '32px', borderRadius: '8px',
+                                        background: result.type === 'customer' ? '#dbeafe' : result.type === 'booking' ? '#dcfce7' : result.type === 'lead' ? '#fef3c7' : '#f3e8ff',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    }}>
+                                        {result.type === 'customer' && <Users size={16} style={{ color: '#3b82f6' }} />}
+                                        {result.type === 'booking' && <Briefcase size={16} style={{ color: '#22c55e' }} />}
+                                        {result.type === 'lead' && <FileText size={16} style={{ color: '#f59e0b' }} />}
+                                        {result.type === 'package' && <BookOpen size={16} style={{ color: '#a855f7' }} />}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 500, fontSize: '14px' }}>{result.title}</div>
+                                        <div style={{ fontSize: '12px', color: '#64748b' }}>{result.subtitle}</div>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
+
+                    {showSearchResults && searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && (
+                        <div className="dropdown-menu" style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px', padding: '20px', textAlign: 'center' }}>
+                            <div style={{ color: '#64748b', fontSize: '14px' }}>No results found for &quot;{searchQuery}&quot;</div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Help */}
-                <button className="topbar-icon-btn" title="Help" type="button">
+                {/* Help Button */}
+                <button
+                    className="topbar-icon-btn"
+                    title="Help"
+                    type="button"
+                    onClick={() => setShowHelpModal(true)}
+                >
                     <HelpCircle size={20} />
                 </button>
 
@@ -172,36 +294,46 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
                         type="button"
                     >
                         <Bell size={20} />
-                        <span className="notification-dot" />
+                        {unreadCount > 0 && <span className="notification-dot" />}
                     </button>
 
                     {showNotifications && (
                         <div className="dropdown-menu notification-dropdown">
                             <div className="dropdown-header">
-                                <span className="font-semibold">Notifications</span>
-                                <button className="btn-text" type="button">Mark all read</button>
+                                <span className="font-semibold">Notifications {unreadCount > 0 && `(${unreadCount})`}</span>
+                                <button
+                                    className="btn-text"
+                                    type="button"
+                                    onClick={async () => {
+                                        await markAllNotificationsAsRead();
+                                        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                                        setUnreadCount(0);
+                                    }}
+                                >
+                                    Mark all read
+                                </button>
                             </div>
                             <div className="dropdown-body">
-                                <NotificationItem
-                                    title="New Booking"
-                                    message="John Doe confirmed booking for Bali trip"
-                                    time="5 min ago"
-                                    unread
-                                />
-                                <NotificationItem
-                                    title="Payment Received"
-                                    message="₹50,000 received for booking #1234"
-                                    time="1 hour ago"
-                                    unread
-                                />
-                                <NotificationItem
-                                    title="Task Due"
-                                    message="Visa application for Sarah pending"
-                                    time="2 hours ago"
-                                />
+                                {notifications.length > 0 ? (
+                                    notifications.map((notification) => (
+                                        <NotificationItem
+                                            key={notification.id}
+                                            title={notification.title}
+                                            message={notification.message || ''}
+                                            time={formatTimeAgo(notification.created_at)}
+                                            unread={!notification.read}
+                                        />
+                                    ))
+                                ) : (
+                                    <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
+                                        No notifications
+                                    </div>
+                                )}
                             </div>
                             <div className="dropdown-footer">
-                                <button className="btn-text" type="button">View all notifications</button>
+                                <Link href="/agency/messages" className="btn-text" onClick={() => setShowNotifications(false)}>
+                                    View all notifications
+                                </Link>
                             </div>
                         </div>
                     )}
@@ -754,6 +886,67 @@ export function Topbar({ title, subtitle, user, agencyName, onMenuToggle }: Topb
                     to { transform: translateY(-50%) scale(1); }
                 }
             `}</style>
+
+            {/* Help Modal */}
+            {showHelpModal && (
+                <div className="logout-modal-overlay" onClick={() => setShowHelpModal(false)}>
+                    <div className="logout-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ fontSize: '20px', fontWeight: 600 }}>Help & Support</h2>
+                            <button onClick={() => setShowHelpModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <BookOpen size={20} style={{ color: '#3b82f6' }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 500 }}>Documentation</div>
+                                    <div style={{ fontSize: '13px', color: '#64748b' }}>Learn how to use TravelX</div>
+                                </div>
+                            </div>
+
+                            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <MessageCircle size={20} style={{ color: '#22c55e' }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 500 }}>Live Chat</div>
+                                    <div style={{ fontSize: '13px', color: '#64748b' }}>Chat with our support team</div>
+                                </div>
+                            </div>
+
+                            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Mail size={20} style={{ color: '#f59e0b' }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 500 }}>Email Support</div>
+                                    <div style={{ fontSize: '13px', color: '#64748b' }}>support@travelx.com</div>
+                                </div>
+                            </div>
+
+                            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Phone size={20} style={{ color: '#a855f7' }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 500 }}>Phone Support</div>
+                                    <div style={{ fontSize: '13px', color: '#64748b' }}>+91 98765 43210</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: '20px', padding: '16px', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: '12px', color: 'white' }}>
+                            <div style={{ fontWeight: 600, marginBottom: '4px' }}>Need personalized help?</div>
+                            <div style={{ fontSize: '13px', opacity: 0.9 }}>Schedule a call with our experts</div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </header>
     );
 }
