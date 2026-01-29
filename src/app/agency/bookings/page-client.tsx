@@ -110,12 +110,12 @@ interface BookingsPageClientProps {
 }
 
 const STATUS_OPTIONS = [
-    { value: 'enquiry', label: 'Enquiry', color: 'info', icon: Clock },
-    { value: 'confirmed', label: 'Confirmed', color: 'primary', icon: CheckCircle },
-    { value: 'documents_pending', label: 'Docs Pending', color: 'warning', icon: FileText },
-    { value: 'ticketed', label: 'Ticketed', color: 'success', icon: Plane },
-    { value: 'completed', label: 'Completed', color: 'success', icon: CheckCircle },
-    { value: 'cancelled', label: 'Cancelled', color: 'error', icon: XCircle },
+    { value: 'enquiry', label: 'Enquiry', color: '#3b82f6', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', icon: Clock },
+    { value: 'confirmed', label: 'Confirmed', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', icon: CheckCircle },
+    { value: 'documents_pending', label: 'Docs Pending', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', icon: FileText },
+    { value: 'ticketed', label: 'Ticketed', color: '#10b981', gradient: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', icon: Plane },
+    { value: 'completed', label: 'Completed', color: '#059669', gradient: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', icon: CheckCircle },
+    { value: 'cancelled', label: 'Cancelled', color: '#ef4444', gradient: 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)', icon: XCircle },
 ];
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
@@ -295,10 +295,22 @@ export function BookingsPageClient({
         const statusOption = STATUS_OPTIONS.find(s => s.value === status);
         const Icon = statusOption?.icon || Clock;
         return (
-            <Badge variant={statusOption?.color as 'success' | 'warning' | 'error' | 'info' | 'primary' || 'default'}>
-                <Icon size={12} style={{ marginRight: '4px' }} />
+            <span
+                style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 10px',
+                    borderRadius: '9999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    background: statusOption?.color || '#64748b',
+                    color: 'white'
+                }}
+            >
+                <Icon size={12} />
                 {statusOption?.label || status}
-            </Badge>
+            </span>
         );
     };
 
@@ -354,35 +366,97 @@ export function BookingsPageClient({
             {/* Page Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold">Bookings</h1>
-                    <p className="text-secondary text-sm">Manage trip bookings and payments</p>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+                        Bookings
+                    </h1>
+                    <p style={{ color: '#64748b', fontSize: '0.9375rem' }}>
+                        Manage trip bookings and payments • {bookings.length} total bookings
+                    </p>
                 </div>
-                <Button onClick={() => { resetForm(); setShowCreateModal(true); }}>
+                <button
+                    onClick={() => { resetForm(); setShowCreateModal(true); }}
+                    style={{
+                        padding: '12px 24px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                        color: 'white',
+                        fontWeight: 600,
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s',
+                        boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
+                    }}
+                >
                     <Plus size={18} />
                     New Booking
-                </Button>
+                </button>
             </div>
 
-            {/* Stats Row */}
-            <div className="grid grid-cols-5 gap-4 mb-6">
-                {STATUS_OPTIONS.slice(0, 5).map(status => {
+            {/* Stats Row - Visual Pipeline */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px' }}>
+                {STATUS_OPTIONS.slice(0, 5).map((status, index) => {
                     const count = bookingsByStatus[status.value]?.length || 0;
                     const Icon = status.icon;
+                    const isActive = statusFilter === status.value;
                     return (
                         <div
                             key={status.value}
-                            className={`card cursor-pointer ${statusFilter === status.value ? 'ring-2 ring-primary-500' : ''}`}
                             onClick={() => setStatusFilter(statusFilter === status.value ? 'all' : status.value)}
+                            style={{
+                                position: 'relative',
+                                flex: '1',
+                                minWidth: '160px',
+                                padding: '16px',
+                                borderRadius: '16px',
+                                background: isActive ? status.gradient : 'white',
+                                border: isActive ? 'none' : '1px solid #e2e8f0',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: isActive ? '0 8px 25px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.04)',
+                                transform: isActive ? 'translateY(-2px)' : 'none',
+                            }}
                         >
-                            <div className="card-body" style={{ padding: 'var(--spacing-4)' }}>
-                                <div className="flex items-center gap-3">
-                                    <Icon size={20} className="text-secondary" />
-                                    <div>
-                                        <div className="text-2xl font-bold">{count}</div>
-                                        <div className="text-sm text-secondary">{status.label}</div>
-                                    </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '44px',
+                                    height: '44px',
+                                    borderRadius: '12px',
+                                    background: isActive ? 'rgba(255,255,255,0.25)' : status.gradient,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}>
+                                    <Icon size={22} color={isActive ? 'white' : 'white'} />
+                                </div>
+                                <div>
+                                    <div style={{
+                                        fontSize: '1.75rem',
+                                        fontWeight: 700,
+                                        color: isActive ? 'white' : '#1e293b',
+                                        lineHeight: 1
+                                    }}>{count}</div>
+                                    <div style={{
+                                        fontSize: '0.8125rem',
+                                        color: isActive ? 'rgba(255,255,255,0.9)' : '#64748b',
+                                        fontWeight: 500
+                                    }}>{status.label}</div>
                                 </div>
                             </div>
+                            {index < 4 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    right: '-18px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    color: '#cbd5e1',
+                                    fontSize: '18px',
+                                    zIndex: 1
+                                }}>→</div>
+                            )}
                         </div>
                     );
                 })}
