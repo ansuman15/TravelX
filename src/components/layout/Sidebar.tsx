@@ -25,6 +25,9 @@ import {
     LogOut,
     AlertTriangle,
     Loader2,
+    Star,
+    Compass,
+    Image,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -70,6 +73,8 @@ const agencyNavItems: NavSection[] = [
     {
         section: 'Resources',
         items: [
+            { href: '/agency/guides', label: 'Tour Guides', icon: Compass },
+            { href: '/agency/gallery', label: 'Gallery', icon: Image },
             { href: '/agency/documents', label: 'Documents', icon: FileText },
             { href: '/agency/suppliers', label: 'Suppliers', icon: Truck },
             { href: '/agency/tasks', label: 'Tasks', icon: CheckSquare },
@@ -79,6 +84,7 @@ const agencyNavItems: NavSection[] = [
         section: 'Management',
         items: [
             { href: '/agency/reports', label: 'Reports', icon: BarChart3 },
+            { href: '/agency/feedback', label: 'Feedback', icon: Star },
             { href: '/agency/staff', label: 'Staff', icon: UserCog },
             { href: '/agency/messages', label: 'Messages', icon: MessageSquare },
             { href: '/agency/settings', label: 'Settings', icon: Settings },
